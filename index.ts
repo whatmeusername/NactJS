@@ -268,9 +268,9 @@ class ApiController {
     }
 
     @Get('/:yes/hello/:id')
-    ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any) {
-        console.log('bye from dynamic');
-        console.log(query, yes, id);
+    ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
+        //@ts-ignore
+        console.log(ip);
     }
 }
 
@@ -282,15 +282,15 @@ function Controller(path: string): any {
     };
 }
 
-function getRouteParameters(route: RouteChild, params: string[], reg: NactRequest): any | null {
+function getRouteParameters(route: RouteChild, params: string[], req: NactRequest): any | null {
     let result = [];
     for (let i = 0; i < params.length; i++) {
         const param = params[i];
         if (param === 'query') {
-            result.push(reg.urldata.query);
+            result.push(req.urldata.query);
         } else if (param === 'param') {
             const routeParams: { [K: string]: any } = {};
-            let regPathSchema = reg.urldata.params;
+            let regPathSchema = req.urldata.params;
             regPathSchema = regPathSchema.slice(regPathSchema.length - route.schema.length);
             for (let i = 0; i < regPathSchema.length; i++) {
                 let param = regPathSchema[i];
@@ -300,6 +300,10 @@ function getRouteParameters(route: RouteChild, params: string[], reg: NactReques
                 }
             }
             result.push(routeParams);
+        } else if (param === 'req') {
+            result.push(req);
+        } else if (param === 'ip') {
+            result.push(req.ip);
         }
     }
     return result;
@@ -365,6 +369,14 @@ function Query(target: any, key: string, index: number): any {
 
 function Param(target: any, key: string, index: number) {
     return setParameterValue('param')(target, key);
+}
+
+function Req(target: any, key: string, index: number) {
+    return setParameterValue('req')(target, key);
+}
+
+function Ip(target: any, key: string, index: number) {
+    return setParameterValue('ip')(target, key);
 }
 
 const controllers = [ApiController];
