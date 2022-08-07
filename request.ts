@@ -1,4 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
+import HttpStatusCodes from './HttpStatusCodes.const';
 import { UrlWithParsedQuery } from 'url';
 import { mime } from 'send';
 import fs from 'fs';
@@ -44,21 +45,22 @@ class NactRequest {
         this.__logger = new NactLogger();
     }
 
-    setContentType(type: string): NactRequest {
+    ContentType(type: string): NactRequest {
         const mimeType = mime.lookup(type) || type;
         this.response.setHeader('Content-type', mimeType);
         return this;
     }
 
-    setStatusCode(code: number): NactRequest {
+    status(code: number): NactRequest {
         this.response.statusCode = code;
         return this;
     }
 
-    setContentLength(length: number): NactRequest {
+    length(length: number): NactRequest {
         this.response.setHeader('Content-Length', length);
         return this;
     }
+
     end(data?: any) {
         if (data) {
             this.response.end(data);
@@ -67,7 +69,12 @@ class NactRequest {
     }
 
     forbiddenRequest() {
-        this.setStatusCode(403).setContentType('txt');
+        this.status(HttpStatusCodes.FORBIDDEN).ContentType('txt');
+        this.end();
+    }
+
+    Request404() {
+        this.ContentType('txt').status(HttpStatusCodes.NOT_FOUND);
         this.end();
     }
 
@@ -112,7 +119,7 @@ class NactRequest {
             if (canStream) {
                 let fileStream = fs.createReadStream(path);
                 fileStream.on('open', () => {
-                    this.setStatusCode(200).setContentType(type).setContentLength(stats.size);
+                    this.status(HttpStatusCodes.OK).ContentType(type).length(stats.size);
                     fileStream.pipe(this.response);
                 });
                 fileStream.on('end', () => {
@@ -125,8 +132,7 @@ class NactRequest {
                 });
             }
         } else {
-            this.setContentType('txt').setStatusCode(404);
-            this.end();
+            this.Request404();
         }
     }
 }

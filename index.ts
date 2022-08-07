@@ -1,27 +1,25 @@
 import http from 'http';
 import { networkInterfaces } from 'os';
-import { mime } from 'send';
-import url from 'url';
-
+import { Ip, Param, Query, Req, Get, HttpStatus, ContentType } from './Decorators/index';
+import { isUppercase } from './utils/Other';
 import 'reflect-metadata';
 
 import NactLogger from './logger';
 import NactRequest from './request';
-import { getPathSchema } from './utils/RoutingUtils';
-import { getRequestURLInfo } from './utils/URLUtils';
+import HttpStatusCodes from './HttpStatusCodes.const';
+import HTTPContentType from './HttpContentType.const';
 import {
     CONTROLLER_ROUTES__NAME,
     ARG_TO_CALL_DESCRIPTOR_OPTIONS,
-    ROUTE__METHOD,
-    ROUTE__PATH,
-    ROUTE__PARAMETER__METADATA,
+    ROUTE__STATUS__CODE,
+    ROUTE__CONTENT__TYPE,
 } from './router.const';
 
 interface NactRoutes {
     [K: string]: NactRoute;
 }
 
-interface NactRoute {
+export interface NactRoute {
     child: { [K: string]: RouteChild };
     absolute: string[];
     self: { new (): any };
@@ -29,7 +27,7 @@ interface NactRoute {
 
 export type ChildRouteSchema = Array<string | { name: string }>;
 
-interface RouteChild {
+export interface RouteChild {
     path: string;
     fullPath?: string;
     name: string;
@@ -39,28 +37,18 @@ interface RouteChild {
     dynamicIndexes: number[];
 }
 
-interface serverSettings {
+export interface serverSettings {
     controllers: { new (): any }[];
+}
+
+export interface NactRouteResponse {
+    body: any;
+    status?: number;
+    contentType?: string;
 }
 
 const getDescriptorPath = (descriptor: TypedPropertyDescriptor<any> | Function): string | null => {
     return Reflect.getOwnMetadata(CONTROLLER_ROUTES__NAME, descriptor) ?? null;
-};
-
-const isUppercase = (value: string): boolean => {
-    return value[0] === value[0].toUpperCase();
-};
-
-const removeSlashes = (string: string): string => {
-    if (string !== '/') {
-        if (string[0] === '/') string = string.slice(1);
-        if (string[string.length - 1] === '/') string = string.slice(0, string.length - 1);
-    }
-    return string;
-};
-
-const getContentType = (type: string): string => {
-    return mime.lookup(type) || type;
 };
 
 const findRouteByParams = (Router: NactRoute, params: ChildRouteSchema): RouteChild | null => {
@@ -86,45 +74,6 @@ const diffRouteSchemas = (s1: ChildRouteSchema, s2: ChildRouteSchema): boolean =
         return true;
     }
     return false;
-};
-
-const getRouteData = (
-    path: string,
-    target: Function,
-    propertyKey: string,
-    descriptor: TypedPropertyDescriptor<any>
-): RouteChild => {
-    const clearedPath = removeSlashes(path);
-    const pathSchema = getPathSchema(clearedPath);
-    let isAbsolute = false;
-
-    const dynamicIndexes: number[] = [];
-    pathSchema.forEach((seg, index) => {
-        if (seg === null) {
-            dynamicIndexes.push(index);
-            isAbsolute = true;
-        }
-    });
-    return {
-        path: clearedPath,
-        name: propertyKey,
-        method: 'GET',
-        absolute: isAbsolute,
-        schema: pathSchema,
-        dynamicIndexes: dynamicIndexes,
-    };
-};
-
-const setMethodForRoute = (descriptor: TypedPropertyDescriptor<any>, method: string, path: string): void | null => {
-    const routeMethod = Reflect.getMetadata(ROUTE__METHOD, descriptor);
-    const pathMethod = Reflect.getMetadata(ROUTE__PATH, descriptor);
-    if (!routeMethod && !pathMethod) {
-        Reflect.defineMetadata(ROUTE__METHOD, 'GET', descriptor);
-        Reflect.defineMetadata(ROUTE__PATH, path, descriptor);
-    } else if (routeMethod !== method || pathMethod !== path) {
-        const logger = new NactLogger();
-        logger.error(`Routes can have only one path, but route with path "${pathMethod}" got another path "${path}"`);
-    }
 };
 
 class NactServer {
@@ -290,9 +239,10 @@ class ApiController {
     }
 
     @Get('/:yes/hello/:id')
+    @HttpStatus(HttpStatusCodes.OK)
+    @ContentType(HTTPContentType.text)
     ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
         //@ts-ignore
-        console.log(req.__raw.readableLength);
     }
 }
 
@@ -302,104 +252,6 @@ function Controller(path: string): any {
 
         return target;
     };
-}
-
-function getRouteParameters(route: RouteChild, params: string[], req: NactRequest): any | null {
-    let result = [];
-    for (let i = 0; i < params.length; i++) {
-        const param = params[i];
-        if (param === 'query') {
-            result.push(req.urldata.query);
-        } else if (param === 'param') {
-            const routeParams: { [K: string]: any } = {};
-            let regPathSchema = req.urldata.params;
-            regPathSchema = regPathSchema.slice(regPathSchema.length - route.schema.length);
-            for (let i = 0; i < regPathSchema.length; i++) {
-                let param = regPathSchema[i];
-                let routeParam = route.schema[i];
-                if (typeof routeParam === 'object') {
-                    routeParams[routeParam.name] = param;
-                }
-            }
-            result.push(routeParams);
-        } else if (param === 'req') {
-            result.push(req);
-        } else if (param === 'ip') {
-            result.push(req.ip);
-        }
-    }
-    return result;
-}
-
-function Get(path: string): any {
-    return function (
-        target: Function,
-        propertyKey: string,
-        descriptor: TypedPropertyDescriptor<any>
-    ): TypedPropertyDescriptor<any> {
-        let descriptorMethod = descriptor.value as Function;
-        setMethodForRoute(descriptor, 'GET', path);
-        descriptor.value = function (isDescriptorCall?: string, request?: NactRequest) {
-            const routeData = getRouteData(path, target, propertyKey, descriptor);
-            if (isDescriptorCall === ARG_TO_CALL_DESCRIPTOR_OPTIONS) {
-                return routeData;
-            } else if (request) {
-                let metaData = Reflect.getMetadataKeys(target.constructor, propertyKey);
-                let routeMetadata = Reflect.getMetadata(metaData[0], target.constructor, propertyKey);
-                let methodParamsVariables: any[] = [];
-
-                if (routeMetadata) {
-                    let methodParams = routeMetadata?.params ?? [];
-                    methodParamsVariables = getRouteParameters(routeData, methodParams, request);
-                }
-
-                return descriptorMethod.apply(this, [...methodParamsVariables]);
-            }
-        };
-        return descriptor;
-    };
-}
-
-function setMetaData(target: any, routeKey: string, key: string, value: string): any {
-    let currentMetaData = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, target.constructor, routeKey);
-    if (currentMetaData) {
-        let propertyExists = currentMetaData[key];
-        if (propertyExists) {
-            currentMetaData[key].unshift(value);
-        } else {
-            currentMetaData[key] = [value];
-        }
-    } else {
-        return { [key]: [value] };
-    }
-    return currentMetaData;
-}
-
-function setParameterValue(paramKey: string) {
-    return function (target: any, key: string): any {
-        Reflect.defineMetadata(
-            ROUTE__PARAMETER__METADATA,
-            setMetaData(target, key, 'params', paramKey),
-            target.constructor,
-            key
-        );
-    };
-}
-
-function Query(target: any, key: string, index: number): any {
-    return setParameterValue('query')(target, key);
-}
-
-function Param(target: any, key: string, index: number) {
-    return setParameterValue('param')(target, key);
-}
-
-function Req(target: any, key: string, index: number) {
-    return setParameterValue('req')(target, key);
-}
-
-function Ip(target: any, key: string, index: number) {
-    return setParameterValue('ip')(target, key);
 }
 
 const controllers = [ApiController];
