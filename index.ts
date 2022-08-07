@@ -21,30 +21,21 @@ interface NactRoute {
     self: { new (): any };
 }
 
+export type ChildRouteSchema = Array<string | { name: string }>;
+
 interface RouteChild {
     path: string;
-    fullPath: string;
+    fullPath?: string;
     name: string;
     method: 'GET' | 'POST';
-    href: string;
     absolute: boolean;
-    schema: Array<string | null>;
+    schema: ChildRouteSchema;
     dynamicIndexes: number[];
 }
 
 interface serverSettings {
     controllers: { new (): any }[];
 }
-
-let currentRequest: http.IncomingMessage | null = null;
-const setHTTPRequest = (req: http.IncomingMessage): http.IncomingMessage => {
-    currentRequest = req;
-    return req;
-};
-
-const getHTTPRequest = (): http.IncomingMessage | null => {
-    return currentRequest;
-};
 
 const getDescriptorPath = (descriptor: TypedPropertyDescriptor<any> | Function): string | null => {
     return Reflect.getOwnMetadata(CONTROLLER_ROUTES__NAME, descriptor) ?? null;
@@ -66,7 +57,7 @@ const getContentType = (type: string): string => {
     return mime.lookup(type) || type;
 };
 
-const findRouteByParams = (Router: NactRoute, params: Array<string | null>): RouteChild | null => {
+const findRouteByParams = (Router: NactRoute, params: ChildRouteSchema): RouteChild | null => {
     let routeChilds = Object.values(Router.child);
     for (let i = 0; i < routeChilds.length; i++) {
         const route = routeChilds[i];
@@ -77,18 +68,45 @@ const findRouteByParams = (Router: NactRoute, params: Array<string | null>): Rou
     return null;
 };
 
-const diffRouteSchemas = (s1: (string | null)[], s2: (string | null)[]): boolean => {
+const diffRouteSchemas = (s1: ChildRouteSchema, s2: ChildRouteSchema): boolean => {
     if (s1.length === s2.length) {
         for (let i = 0; i < s1.length; i++) {
             let dseg = s1[i];
             let pathseg = s2[i];
-            if (dseg !== null && dseg !== pathseg) {
+            if (typeof dseg !== 'object' && dseg !== pathseg) {
                 return false;
             }
         }
         return true;
     }
     return false;
+};
+
+const getRouteData = (
+    path: string,
+    target: Function,
+    propertyKey: string,
+    descriptor: TypedPropertyDescriptor<any>
+): RouteChild => {
+    const clearedPath = removeSlashes(path);
+    const pathSchema = getPathSchema(clearedPath);
+    let isAbsolute = false;
+
+    const dynamicIndexes: number[] = [];
+    pathSchema.forEach((seg, index) => {
+        if (seg === null) {
+            dynamicIndexes.push(index);
+            isAbsolute = true;
+        }
+    });
+    return {
+        path: clearedPath,
+        name: propertyKey,
+        method: 'GET',
+        absolute: isAbsolute,
+        schema: pathSchema,
+        dynamicIndexes: dynamicIndexes,
+    };
 };
 
 class NactServer {
@@ -130,7 +148,8 @@ class NactServer {
     }
 
     protected __RequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
-        let result = this.executeRequest(setHTTPRequest(req));
+        let request = new NactRequest(req);
+        let result = this.executeRequest(request);
         if (result === undefined || result === null) {
             res.statusCode = 404;
             res.setHeader('Content-type', getContentType('txt'));
@@ -174,13 +193,10 @@ class NactServer {
         return routeMethod;
     }
 
-    executeRequest(req: http.IncomingMessage): any {
+    executeRequest(req: NactRequest): any {
         let res;
 
-        let url = getRequestURLInfo(req);
-        let params = url.params;
-
-        let routeMethod = this.__resolverRouteMethod(params);
+        let routeMethod = this.__resolverRouteMethod(req.urldata.params);
         if (routeMethod) {
             res = routeMethod(null, req);
         }
@@ -203,7 +219,7 @@ class NactServer {
                         let descriptor = controllerDescriptors[descriptorKey];
                         let routeParamters: RouteChild = descriptor.value(ARG_TO_CALL_DESCRIPTOR_OPTIONS) as RouteChild;
 
-                        routeParamters.schema.unshift(contorllerRoute);
+                        routeParamters.schema.unshift(contorllerRoute as string);
                         const absolutePath = contorllerRoute + '/' + routeParamters.path;
                         const isExists = findRouteByParams(CurrentRoute, routeParamters.schema) ? true : false;
 
@@ -251,10 +267,10 @@ class ApiController {
         console.log('bye');
     }
 
-    @Get('/bye/hello/:id')
-    ByeWorldWithId(@Query query: URLSearchParams) {
+    @Get('/:yes/hello/:id')
+    ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any) {
         console.log('bye from dynamic');
-        console.log(query);
+        console.log(query, yes, id);
     }
 }
 
@@ -266,15 +282,27 @@ function Controller(path: string): any {
     };
 }
 
-function getReqParameter(param: string): any | null {
-    let req = getHTTPRequest();
-    if (req) {
+function getRouteParameters(route: RouteChild, params: string[], reg: NactRequest): any | null {
+    let result = [];
+    for (let i = 0; i < params.length; i++) {
+        const param = params[i];
         if (param === 'query') {
-            let URL = getRequestURLInfo(req);
-            return URL.query;
+            result.push(reg.urldata.query);
+        } else if (param === 'param') {
+            const routeParams: { [K: string]: any } = {};
+            let regPathSchema = reg.urldata.params;
+            regPathSchema = regPathSchema.slice(regPathSchema.length - route.schema.length);
+            for (let i = 0; i < regPathSchema.length; i++) {
+                let param = regPathSchema[i];
+                let routeParam = route.schema[i];
+                if (typeof routeParam === 'object') {
+                    routeParams[routeParam.name] = param;
+                }
+            }
+            result.push(routeParams);
         }
     }
-    return null;
+    return result;
 }
 
 function Get(path: string): any {
@@ -284,52 +312,59 @@ function Get(path: string): any {
         descriptor: TypedPropertyDescriptor<any>
     ): TypedPropertyDescriptor<any> {
         let descriptorMethod = descriptor.value as Function;
-        descriptor.value = function (isDescriptorCall?: string, req?: http.IncomingMessage) {
+        descriptor.value = function (isDescriptorCall?: string, request?: NactRequest) {
+            const routeData = getRouteData(path, target, propertyKey, descriptor);
             if (isDescriptorCall === ARG_TO_CALL_DESCRIPTOR_OPTIONS) {
-                const clearedPath = removeSlashes(path);
-                let pathSchema = getPathSchema(clearedPath);
-                const isAbsolute = pathSchema.some((seg) => seg === null) ? false : true;
+                return routeData;
+            } else if (request) {
+                let metaData = Reflect.getMetadataKeys(target.constructor, propertyKey);
+                let routeMetadata = Reflect.getMetadata(metaData[0], target.constructor, propertyKey);
+                let methodParamsVariables: any[] = [];
 
-                const dynamicIndexes: number[] = [];
-                if (!isAbsolute) {
-                    pathSchema.forEach((seg, index) => {
-                        if (seg === null) dynamicIndexes.push(index);
-                    });
+                if (routeMetadata) {
+                    let methodParams = routeMetadata?.params ?? [];
+                    methodParamsVariables = getRouteParameters(routeData, methodParams, request);
                 }
-                return {
-                    path: clearedPath,
-                    name: propertyKey,
-                    method: 'GET',
-                    absolute: isAbsolute,
-                    schema: pathSchema,
-                    dynamicIndexes: dynamicIndexes,
-                };
-            }
-            let metaData = Reflect.getMetadataKeys(target.constructor, propertyKey);
-            let routeMetadata = Reflect.getMetadata(metaData[0], target.constructor, propertyKey);
-            let methodParamsVariables: any[] = [];
 
-            if (routeMetadata) {
-                let methodParams = routeMetadata?.params ?? [];
-                methodParams.forEach((param: string) => {
-                    methodParamsVariables.push(getReqParameter(param));
-                });
+                return descriptorMethod.apply(this, [...methodParamsVariables]);
             }
-
-            return descriptorMethod.apply(this, [...methodParamsVariables]);
         };
         return descriptor;
     };
 }
 
+function setRouteMetaData(target: any, routeKey: string, key: string, value: string): any {
+    let currentMetaData = Reflect.getMetadata('route__metadata', target.constructor, routeKey);
+    if (currentMetaData) {
+        let propertyExists = currentMetaData[key];
+        if (propertyExists) {
+            currentMetaData[key].unshift(value);
+        } else {
+            currentMetaData[key] = [value];
+        }
+    } else {
+        return { [key]: [value] };
+    }
+    return currentMetaData;
+}
+
 function setParameterValue(paramKey: string) {
     return function (target: any, key: string): any {
-        Reflect.defineMetadata('route__metadata', { params: [paramKey] }, target.constructor, key);
+        Reflect.defineMetadata(
+            'route__metadata',
+            setRouteMetaData(target, key, 'params', paramKey),
+            target.constructor,
+            key
+        );
     };
 }
 
 function Query(target: any, key: string, index: number): any {
     return setParameterValue('query')(target, key);
+}
+
+function Param(target: any, key: string, index: number) {
+    return setParameterValue('param')(target, key);
 }
 
 const controllers = [ApiController];
