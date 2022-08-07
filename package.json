@@ -1,0 +1,20 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon  --ext ts,json --exec ts-node --logError ./index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^18.6.4",
+    "@types/send": "^0.17.1"
+  },
+  "dependencies": {
+    "reflect-metadata": "^0.1.13",
+    "send": "^0.18.0"
+  }
+}
