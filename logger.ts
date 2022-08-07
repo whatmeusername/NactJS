@@ -23,21 +23,28 @@ interface LoggerBaseColors {
     log?: LoggerAvailableColors;
     error?: LoggerAvailableColors;
     warning?: LoggerAvailableColors;
+    info?: LoggerAvailableColors;
 }
 
 export default class NactLogger {
     logColor: LoggerAvailableColors;
     warningColor: LoggerAvailableColors;
     errorColor: LoggerAvailableColors;
+    infoColor: LoggerAvailableColors;
 
     constructor(color?: LoggerBaseColors) {
         this.logColor = (color?.log ?? colors.green) as LoggerAvailableColors;
         this.warningColor = (color?.warning ?? colors.yellow) as LoggerAvailableColors;
         this.errorColor = (color?.error ?? colors.red) as LoggerAvailableColors;
+        this.infoColor = (color?.info ?? colors.blue) as LoggerAvailableColors;
     }
 
-    protected __color(color: string, message: string): void {
-        console.log(color, message, colors.Reset);
+    protected __color(color: string, message: string, type?: 'warning' | 'error' | 'info'): void {
+        if (type) {
+            if (type === 'warning') console.warn(color, message, colors.Reset);
+            else if (type === 'error') console.error(color, message, colors.Reset);
+            else if (type === 'info') console.info(color, message, colors.Reset);
+        } else console.log(color, message, colors.Reset);
     }
 
     log(message: string): void {
@@ -51,5 +58,17 @@ export default class NactLogger {
         const color = `${this.errorColor}`;
         const errorMessage = `${color}${prefix} ${message}${colors.Reset}`;
         throw new Error(errorMessage);
+    }
+
+    warning(message: string): void {
+        const prefix = `[NACT WARNING]`;
+        const color = `${this.warningColor}`;
+        this.__color(color, `${prefix} ${message}`, 'warning');
+    }
+
+    info(message: string): void {
+        const prefix = `[NACT INFO]`;
+        const color = `${this.infoColor}`;
+        this.__color(color, `${prefix} ${message}`, 'info');
     }
 }

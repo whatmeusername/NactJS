@@ -9,7 +9,13 @@ import NactLogger from './logger';
 import NactRequest from './request';
 import { getPathSchema } from './utils/RoutingUtils';
 import { getRequestURLInfo } from './utils/URLUtils';
-import { CONTROLLER_ROUTES__NAME, ARG_TO_CALL_DESCRIPTOR_OPTIONS } from './router.const';
+import {
+    CONTROLLER_ROUTES__NAME,
+    ARG_TO_CALL_DESCRIPTOR_OPTIONS,
+    ROUTE__METHOD,
+    ROUTE__PATH,
+    ROUTE__PARAMETER__METADATA,
+} from './router.const';
 
 interface NactRoutes {
     [K: string]: NactRoute;
@@ -109,6 +115,18 @@ const getRouteData = (
     };
 };
 
+const setMethodForRoute = (descriptor: TypedPropertyDescriptor<any>, method: string, path: string): void | null => {
+    const routeMethod = Reflect.getMetadata(ROUTE__METHOD, descriptor);
+    const pathMethod = Reflect.getMetadata(ROUTE__PATH, descriptor);
+    if (!routeMethod && !pathMethod) {
+        Reflect.defineMetadata(ROUTE__METHOD, 'GET', descriptor);
+        Reflect.defineMetadata(ROUTE__PATH, path, descriptor);
+    } else if (routeMethod !== method || pathMethod !== path) {
+        const logger = new NactLogger();
+        logger.error(`Routes can have only one path, but route with path "${pathMethod}" got another path "${path}"`);
+    }
+};
+
 class NactServer {
     server: http.Server;
     routes: NactRoutes;
@@ -142,23 +160,27 @@ class NactServer {
         const net = networkInterfaces();
         let en0 = net.en0;
         if (en0) {
-            let IPv4 = en0[1].address;
-            this.IPv4 = IPv4;
+            if (en0[1]) {
+                let IPv4 = en0[1].address;
+                this.IPv4 = IPv4;
+            }
         }
     }
 
     protected __RequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
-        let request = new NactRequest(req);
+        let request = new NactRequest(req, res);
         let result = this.executeRequest(request);
-        if (result === undefined || result === null) {
-            res.statusCode = 404;
-            res.setHeader('Content-type', getContentType('txt'));
-        } else {
-            res.setHeader('Content-type', getContentType('txt'));
-            res.write(result);
-        }
 
-        res.end();
+        request.sendFile(__dirname + '/static/image.jpg');
+        // if (result === undefined || result === null) {
+        //     res.statusCode = 404;
+        //     res.setHeader('Content-type', getContentType('txt'));
+        // } else {
+        //     res.setHeader('Content-type', getContentType('txt'));
+        //     res.write(result);
+        // }
+
+        // res.end();
     };
 
     __resolverRouteMethod(params: string[]): Function | undefined {
@@ -270,7 +292,7 @@ class ApiController {
     @Get('/:yes/hello/:id')
     ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
         //@ts-ignore
-        console.log(ip);
+        console.log(req.__raw.readableLength);
     }
 }
 
@@ -316,6 +338,7 @@ function Get(path: string): any {
         descriptor: TypedPropertyDescriptor<any>
     ): TypedPropertyDescriptor<any> {
         let descriptorMethod = descriptor.value as Function;
+        setMethodForRoute(descriptor, 'GET', path);
         descriptor.value = function (isDescriptorCall?: string, request?: NactRequest) {
             const routeData = getRouteData(path, target, propertyKey, descriptor);
             if (isDescriptorCall === ARG_TO_CALL_DESCRIPTOR_OPTIONS) {
@@ -337,8 +360,8 @@ function Get(path: string): any {
     };
 }
 
-function setRouteMetaData(target: any, routeKey: string, key: string, value: string): any {
-    let currentMetaData = Reflect.getMetadata('route__metadata', target.constructor, routeKey);
+function setMetaData(target: any, routeKey: string, key: string, value: string): any {
+    let currentMetaData = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, target.constructor, routeKey);
     if (currentMetaData) {
         let propertyExists = currentMetaData[key];
         if (propertyExists) {
@@ -355,8 +378,8 @@ function setRouteMetaData(target: any, routeKey: string, key: string, value: str
 function setParameterValue(paramKey: string) {
     return function (target: any, key: string): any {
         Reflect.defineMetadata(
-            'route__metadata',
-            setRouteMetaData(target, key, 'params', paramKey),
+            ROUTE__PARAMETER__METADATA,
+            setMetaData(target, key, 'params', paramKey),
             target.constructor,
             key
         );
