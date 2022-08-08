@@ -26,28 +26,12 @@ const getPathSchema = (string: string): ChildRouteSchema => {
     return res;
 };
 
-function getRouteParameters(route: RouteChild, params: string[], req: NactRequest): any | null {
+function getRouteParameters(route: RouteChild, params: any[], req: NactRequest): any | null {
     let result = [];
     for (let i = 0; i < params.length; i++) {
         const param = params[i];
-        if (param === 'query') {
-            result.push(req.urldata.query);
-        } else if (param === 'param') {
-            const routeParams: { [K: string]: any } = {};
-            let regPathSchema = req.urldata.params;
-            regPathSchema = regPathSchema.slice(regPathSchema.length - route.schema.length);
-            for (let i = 0; i < regPathSchema.length; i++) {
-                let param = regPathSchema[i];
-                let routeParam = route.schema[i];
-                if (typeof routeParam === 'object') {
-                    routeParams[routeParam.name] = param;
-                }
-            }
-            result.push(routeParams);
-        } else if (param === 'req') {
-            result.push(req);
-        } else if (param === 'ip') {
-            result.push(req.ip);
+        if (typeof param === 'function') {
+            result.push(param(req));
         }
     }
     return result;

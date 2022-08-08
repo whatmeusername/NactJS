@@ -1,7 +1,8 @@
-import { setParameterValue } from '../Utils';
+import { createParamRoute } from '../Utils';
+import NactRequest from '../../request';
 
-function Ip(target: any, key: string, index: number) {
-    return setParameterValue('ip')(target, key);
-}
+const Ip = createParamRoute(function (req: NactRequest) {
+    return req.ip;
+});
 
 export default Ip;

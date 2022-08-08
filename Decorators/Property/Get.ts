@@ -1,4 +1,4 @@
-import { ARG_TO_CALL_DESCRIPTOR_OPTIONS } from '../../router.const';
+import { ARG_TO_CALL_DESCRIPTOR_OPTIONS, ROUTE__PARAMS, ROUTE__PARAMETER__METADATA } from '../../router.const';
 
 import { setMethodForRoute, getRouteData } from '../Utils';
 import { HandleRouteResponse, getRouteParameters } from '../../utils/RoutingUtils';
@@ -18,12 +18,11 @@ function Get(path: string): any {
             if (isDescriptorCall === ARG_TO_CALL_DESCRIPTOR_OPTIONS) {
                 return routeData;
             } else if (request) {
-                let metaData = Reflect.getMetadataKeys(target.constructor, propertyKey);
-                let routeMetadata = Reflect.getMetadata(metaData[0], target.constructor, propertyKey);
+                let routeMetadata = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, target.constructor, propertyKey);
                 let methodParamsVariables: any[] = [];
 
                 if (routeMetadata) {
-                    let methodParams = routeMetadata?.params ?? [];
+                    let methodParams = routeMetadata[ROUTE__PARAMS] ?? [];
                     methodParamsVariables = getRouteParameters(routeData, methodParams, request);
                 }
 

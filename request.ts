@@ -1,10 +1,12 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import HttpStatusCodes from './HttpStatusCodes.const';
+import HTTPContentType from './HttpContentType.const';
 import { UrlWithParsedQuery } from 'url';
 import { mime } from 'send';
 import fs from 'fs';
 
 import { parse } from 'path';
+import { RouteChild } from './index';
 
 import { getRequestURLInfo, getProtocol, getRequestIP, getHost } from './utils/URLUtils';
 import NactLogger from './logger';
@@ -26,7 +28,10 @@ const SendFileDefaultOption = {
 
 class NactRequest {
     protected __raw: IncomingMessage;
-    private response: ServerResponse;
+    private response: ServerResponse | null;
+    public readonly route: RouteChild | null;
+    protected closed: boolean = false;
+
     host: string | null;
     ip: string | null;
     protocol: 'http' | 'https';
@@ -37,6 +42,8 @@ class NactRequest {
     constructor(reg: IncomingMessage, res: ServerResponse) {
         this.__raw = reg;
         this.response = res;
+        this.route = null;
+        this.closed = false;
         this.host = getHost(reg);
         this.ip = getRequestIP(reg);
         this.protocol = getProtocol(reg);
@@ -45,42 +52,68 @@ class NactRequest {
         this.__logger = new NactLogger();
     }
 
+    set __route(__route: any) {
+        //@ts-ignore
+        this.route = __route;
+    }
+
     ContentType(type: string): NactRequest {
         const mimeType = mime.lookup(type) || type;
-        this.response.setHeader('Content-type', mimeType);
+        if (!this.closed) (this.response as ServerResponse).setHeader('Content-type', mimeType);
+
         return this;
     }
 
     status(code: number): NactRequest {
-        this.response.statusCode = code;
+        if (!this.closed) (this.response as ServerResponse).statusCode = code;
         return this;
     }
 
     length(length: number): NactRequest {
-        this.response.setHeader('Content-Length', length);
+        if (!this.closed) (this.response as ServerResponse).setHeader('Content-Length', length);
         return this;
     }
 
     end(data?: any) {
-        if (data) {
-            this.response.end(data);
+        if (this.response && !this.closed) {
+            if (data) {
+                this.response.end(data);
+            }
+            this.response.end();
         }
-        this.response.end();
+    }
+
+    protected closeRequest(data?: any) {
+        if (!this.closed) {
+            this.closeRequest();
+            this.closed = true;
+            this.response = null;
+        }
     }
 
     forbiddenRequest() {
-        this.status(HttpStatusCodes.FORBIDDEN).ContentType('txt');
-        this.end();
+        if (!this.closed) {
+            this.status(HttpStatusCodes.FORBIDDEN).ContentType('txt');
+            this.closeRequest();
+        }
     }
 
     Request404() {
-        this.ContentType('txt').status(HttpStatusCodes.NOT_FOUND);
-        this.end();
+        if (!this.closed) {
+            this.ContentType('txt').status(HttpStatusCodes.NOT_FOUND);
+            this.closeRequest();
+        }
+    }
+
+    getMimeType(value: any) {
+        let valueType = typeof value;
+        if (valueType === 'object') return HTTPContentType.json;
+        else if (valueType === 'string' || valueType === 'number') return HTTPContentType.text;
     }
 
     sendFile(path: string, options: NactSendFileOption = SendFileDefaultOption) {
         const isFileExists = fs.existsSync(path);
-        if (isFileExists) {
+        if (isFileExists && !this.closed) {
             let canStream = true;
 
             let fileProperties = parse(path);
@@ -120,15 +153,15 @@ class NactRequest {
                 let fileStream = fs.createReadStream(path);
                 fileStream.on('open', () => {
                     this.status(HttpStatusCodes.OK).ContentType(type).length(stats.size);
-                    fileStream.pipe(this.response);
+                    fileStream.pipe(this.response as ServerResponse);
                 });
                 fileStream.on('end', () => {
-                    this.end();
+                    this.closeRequest();
                 });
 
                 fileStream.on('error', () => {
                     this.__logger.error(`Send file: Caught error while streaming file "${fileProperties.base}".`);
-                    this.end();
+                    this.closeRequest();
                 });
             }
         } else {

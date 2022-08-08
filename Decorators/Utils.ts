@@ -1,5 +1,6 @@
-import { ROUTE__PARAMETER__METADATA, ROUTE__PATH, ROUTE__METHOD } from '../router.const';
+import { ROUTE__PARAMETER__METADATA, ROUTE__PATH, ROUTE__METHOD, ROUTE__PARAMS } from '../router.const';
 import NactLogger from '../logger';
+import NactRequest from '../request';
 
 import { getPathSchema } from '../utils/RoutingUtils';
 import { removeSlashes } from '../utils/Other';
@@ -14,13 +15,13 @@ const getRouteData = (
 ): RouteChild => {
     const clearedPath = removeSlashes(path);
     const pathSchema = getPathSchema(clearedPath);
-    let isAbsolute = false;
+    let isAbsolute = true;
 
     const dynamicIndexes: number[] = [];
     pathSchema.forEach((seg, index) => {
         if (seg === null) {
             dynamicIndexes.push(index);
-            isAbsolute = true;
+            isAbsolute = false;
         }
     });
     return {
@@ -45,7 +46,7 @@ const setMethodForRoute = (descriptor: TypedPropertyDescriptor<any>, method: str
     }
 };
 
-function setMetaData(target: any, routeKey: string, key: string, value: string): any {
+function setMetaData(target: any, routeKey: string, key: string, value: any): any {
     let currentMetaData = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, target.constructor, routeKey);
     if (currentMetaData) {
         let propertyExists = currentMetaData[key];
@@ -71,4 +72,15 @@ function setParameterValue(paramKey: string) {
     };
 }
 
-export { setParameterValue, setMethodForRoute, getRouteData };
+function createParamRoute(func: (req: NactRequest) => any) {
+    return function (target: any, key: string, index: any): any {
+        Reflect.defineMetadata(
+            ROUTE__PARAMETER__METADATA,
+            setMetaData(target, key, ROUTE__PARAMS, func),
+            target.constructor,
+            key
+        );
+    };
+}
+
+export { createParamRoute, setMethodForRoute, getRouteData };

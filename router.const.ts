@@ -6,6 +6,7 @@ const ROUTE__PATH = 'route__path__option';
 const ROUTE__PARAMETER__METADATA = 'route__parameter__metadata';
 const ROUTE__STATUS__CODE = 'route__http__status';
 const ROUTE__CONTENT__TYPE = 'route__http__content__type';
+const ROUTE__PARAMS = 'route__http__params';
 
 export {
     CONTROLLER_ROUTES__NAME,
@@ -15,4 +16,5 @@ export {
     ROUTE__PARAMETER__METADATA,
     ROUTE__STATUS__CODE,
     ROUTE__CONTENT__TYPE,
+    ROUTE__PARAMS,
 };

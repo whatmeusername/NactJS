@@ -1,6 +1,7 @@
 import http from 'http';
 import { networkInterfaces } from 'os';
 import { Ip, Param, Query, Req, Get, HttpStatus, ContentType } from './Decorators/index';
+
 import { isUppercase } from './utils/Other';
 import 'reflect-metadata';
 
@@ -119,44 +120,26 @@ class NactServer {
     protected __RequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
         let request = new NactRequest(req, res);
         let result = this.executeRequest(request);
-
-        request.sendFile(__dirname + '/static/image.jpg');
-        // if (result === undefined || result === null) {
-        //     res.statusCode = 404;
-        //     res.setHeader('Content-type', getContentType('txt'));
-        // } else {
-        //     res.setHeader('Content-type', getContentType('txt'));
-        //     res.write(result);
-        // }
-
-        // res.end();
     };
 
-    __resolverRouteMethod(params: string[]): Function | undefined {
+    __resolverRouteMethod(req: NactRequest): Function | undefined {
+        const params = req.urldata.params;
         let firstParam = params[0];
         let Router = this.routes[firstParam];
         let absolutePath = params.join('/');
-        let route;
+        let route: RouteChild | null = null;
         let routeMethod;
 
         if (Router) {
             if (params.length > 1) {
-                if (Router.absolute.includes(absolutePath)) {
-                    route = Router.child[absolutePath];
-                } else {
-                    let route = findRouteByParams(Router, params);
-                    if (route) {
-                        //@ts-ignore
-                        routeMethod = Router.self[route.name];
-                    }
-                }
+                if (Router.absolute.includes(absolutePath)) route = Router.child[absolutePath];
+                else route = findRouteByParams(Router, params);
             } else {
                 absolutePath = firstParam + '//';
-                if (Router.absolute.includes(absolutePath)) {
-                    route = Router.child[absolutePath];
-                }
+                if (Router.absolute.includes(absolutePath)) route = Router.child[absolutePath];
             }
             if (route) {
+                req.__route = route;
                 //@ts-ignore
                 routeMethod = Router.self[route.name];
             }
@@ -167,7 +150,7 @@ class NactServer {
     executeRequest(req: NactRequest): any {
         let res;
 
-        let routeMethod = this.__resolverRouteMethod(req.urldata.params);
+        let routeMethod = this.__resolverRouteMethod(req);
         if (routeMethod) {
             res = routeMethod(null, req);
         }
@@ -228,21 +211,17 @@ class ApiController {
     }
 
     @Get('/')
-    HelloWorld() {
-        console.log('hi');
+    HelloWorld(test: any) {
+        console.log('hi', test);
         return 'bye';
-    }
-
-    @Get('/bye/hello')
-    ByeWorld() {
-        console.log('bye');
     }
 
     @Get('/:yes/hello/:id')
     @HttpStatus(HttpStatusCodes.OK)
     @ContentType(HTTPContentType.text)
     ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
-        //@ts-ignore
+        console.log(yes, id);
+        return { test: 'id' };
     }
 }
 

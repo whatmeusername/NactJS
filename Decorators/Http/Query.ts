@@ -1,7 +1,8 @@
-import { setParameterValue } from '../Utils';
+import { createParamRoute } from '../Utils';
+import NactRequest from '../../request';
 
-function Query(target: any, key: string, index: number): any {
-    return setParameterValue('query')(target, key);
-}
+const Query = createParamRoute(function (req: NactRequest) {
+    return req.urldata.query;
+});
 
 export default Query;
