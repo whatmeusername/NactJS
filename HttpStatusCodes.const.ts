@@ -1,4 +1,4 @@
-const HttpStatusCodes = {
+const HTTPStatusCodes = {
     CONTINUE: 100,
     SWITCHING_PROTOCOLS: 101,
     PROCESSING: 102,
@@ -49,4 +49,4 @@ const HttpStatusCodes = {
     HTTP_VERSION_NOT_SUPPORTED: 505,
 };
 
-export default HttpStatusCodes;
+export default HTTPStatusCodes;

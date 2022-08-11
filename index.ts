@@ -1,6 +1,9 @@
 import http from 'http';
+import { Socket } from 'net';
 import { networkInterfaces } from 'os';
 import { Ip, Param, Query, Req, Get, HttpStatus, ContentType } from './Decorators/index';
+import url from 'url';
+import NactCors from './Middleware/Cors/index';
 
 import { isUppercase } from './utils/Other';
 import 'reflect-metadata';
@@ -9,15 +12,18 @@ import NactLogger from './logger';
 import NactRequest from './request';
 import HttpStatusCodes from './HttpStatusCodes.const';
 import HTTPContentType from './HttpContentType.const';
-import {
-    CONTROLLER_ROUTES__NAME,
-    ARG_TO_CALL_DESCRIPTOR_OPTIONS,
-    ROUTE__STATUS__CODE,
-    ROUTE__CONTENT__TYPE,
-} from './router.const';
+import { getRequestURLInfo } from './utils/URLUtils';
+import { CONTROLLER_ROUTES__NAME, ARG_TO_CALL_DESCRIPTOR_OPTIONS } from './router.const';
 
 interface NactRoutes {
     [K: string]: NactRoute;
+}
+
+interface InjectRequest {
+    url: string;
+    headers: { [K: string]: string };
+    method: 'GET' | 'POST' | 'DELETE' | 'OPTIONS' | 'PUT';
+    authority?: string;
 }
 
 export interface NactRoute {
@@ -39,7 +45,7 @@ export interface RouteChild {
 }
 
 export interface serverSettings {
-    controllers: { new (): any }[];
+    controllers?: { new (): any }[];
 }
 
 export interface NactRouteResponse {
@@ -77,18 +83,32 @@ const diffRouteSchemas = (s1: ChildRouteSchema, s2: ChildRouteSchema): boolean =
     return false;
 };
 
+function runMiddlewares(middlewares: Array<Function>, NactRequest: NactRequest): boolean {
+    for (let i = 0; i < middlewares.length; i++) {
+        if (!NactRequest.closed) {
+            const middleware = middlewares[i];
+            middleware(NactRequest);
+        } else return false;
+    }
+    return true;
+}
+
 class NactServer {
     server: http.Server;
+    serverRunningURL: string | null;
     routes: NactRoutes;
     IPv4: string | null;
     logger: NactLogger;
+    middleware: any; //NactMiddleware;
     constructor(serverSetting: serverSettings) {
         this.server = http.createServer(this.__RequestHandler);
+        this.serverRunningURL = null;
         this.routes = {};
         this.logger = new NactLogger();
         this.IPv4 = null;
+        this.middleware = [];
 
-        this.registerController(serverSetting.controllers);
+        this.registerController(serverSetting?.controllers ?? []);
         this.__getLocalMachineIP();
 
         this.logger.log('NactServer is successfully configured');
@@ -102,8 +122,19 @@ class NactServer {
         this.server.listen(port, () => {
             const protocol = 'http://';
             const ipv4 = this.IPv4 ?? 'localhost';
-            this.logger.log(`NactServer is now running on ${protocol + ipv4 + ':' + port + '/'}`);
+            const serverURL = protocol + ipv4 + ':' + port + '/';
+            this.serverRunningURL = serverURL;
+            this.logger.log(`NactServer is now running on ${serverURL}`);
         });
+    }
+
+    useMiddleware(middleware: (req: NactRequest) => void) {
+        this.middleware.push(middleware);
+        this.logger.info(
+            `"${middleware.name ?? 'NAME UNDEFINED'}" function is now used as global middleware`,
+            'MIDDLEWARE'
+        );
+        return this;
     }
 
     protected __getLocalMachineIP(): void {
@@ -118,8 +149,8 @@ class NactServer {
     }
 
     protected __RequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
-        let request = new NactRequest(req, res);
-        let result = this.executeRequest(request);
+        const request = new NactRequest(req, res);
+        this.executeRequest(request);
     };
 
     __resolverRouteMethod(req: NactRequest): Function | undefined {
@@ -147,15 +178,79 @@ class NactServer {
         return routeMethod;
     }
 
-    executeRequest(req: NactRequest): any {
-        let res;
-
-        let routeMethod = this.__resolverRouteMethod(req);
-        if (routeMethod) {
-            res = routeMethod(null, req);
+    executeRequest(request: NactRequest): any {
+        let response = undefined;
+        if (runMiddlewares(this.middleware, request)) {
+            let routeMethod = this.__resolverRouteMethod(request);
+            if (routeMethod) {
+                response = routeMethod(null, request);
+            }
         }
+        return request.send(response);
+    }
 
-        return res;
+    injectRequest(RequestData: InjectRequest) {
+        const URLdata = url.parse(RequestData.url);
+
+        function getHTTPRequest(): http.IncomingMessage {
+            function setURL(req: http.IncomingMessage) {
+                req.url = URLdata.pathname + (URLdata.search ? URLdata.search : '');
+            }
+
+            function setHost(req: http.IncomingMessage) {
+                req.headers.host =
+                    RequestData.headers.host || (RequestData?.authority ?? false) || (URLdata.host ?? '');
+            }
+
+            function setHttpVersion(req: http.IncomingMessage) {
+                req.httpVersionMajor = 1;
+                req.httpVersionMinor = 1;
+                req.httpVersion = '1.1';
+            }
+            function setMethod(req: http.IncomingMessage) {
+                req.method = RequestData.method ? RequestData.method.toUpperCase() : 'GET';
+            }
+            function setHeaders(req: http.IncomingMessage) {
+                if (RequestData?.headers) {
+                    const headersData = Object.entries(RequestData.headers);
+                    for (let i = 0; i < headersData.length; i++) {
+                        const header = headersData[i];
+                        if (header[1] !== undefined && header[1] !== null) {
+                            req.headers[header[0]] = header[1];
+                        }
+                    }
+                }
+            }
+            function setUserAgent(req: http.IncomingMessage) {
+                req.headers['user-agent'] = RequestData.headers['user-agent'] || 'NactFakeRequest';
+            }
+
+            function setRawHeaders(req: http.IncomingMessage) {
+                const headersData = Object.entries(req.headers);
+                for (let i = 0; i < headersData.length; i++) {
+                    const [key, value] = headersData[i];
+                    if (value !== undefined && value !== null) {
+                        req.rawHeaders.push(key);
+                        Array.isArray(value) ? req.rawHeaders.push(...value) : req.rawHeaders.push(value);
+                    }
+                }
+            }
+
+            let rawRequest = new http.IncomingMessage(new Socket());
+
+            setURL(rawRequest);
+            setHost(rawRequest);
+            setHttpVersion(rawRequest);
+            setMethod(rawRequest);
+            setHeaders(rawRequest);
+            setUserAgent(rawRequest);
+            setRawHeaders(rawRequest);
+            return rawRequest;
+        }
+        let request = getHTTPRequest();
+        let response = new http.ServerResponse(request);
+        const nactRequest = new NactRequest(request, response);
+        return this.executeRequest(nactRequest);
     }
 
     registerController(controllerClass: { new (): any }[]) {
@@ -205,14 +300,12 @@ class ApiController {
     constructor() {}
 
     @Get('delete')
-    Delete(@Query query: any) {
-        console.log(query);
-        return 'bye';
+    Delete() {
+        return { message: 'bye' };
     }
 
     @Get('/')
     HelloWorld(test: any) {
-        console.log('hi', test);
         return 'bye';
     }
 
@@ -220,7 +313,6 @@ class ApiController {
     @HttpStatus(HttpStatusCodes.OK)
     @ContentType(HTTPContentType.text)
     ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
-        console.log(yes, id);
         return { test: 'id' };
     }
 }
@@ -238,7 +330,12 @@ const controllers = [ApiController];
 function App() {
     const app = new NactServer({ controllers: controllers });
 
+    app.useMiddleware(NactCors({ allowedOrigin: 'http://localhost:3000' }));
+
     app.listen(8000);
 }
 
 App();
+
+export default NactServer;
+export { Controller };

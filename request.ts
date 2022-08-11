@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import HttpStatusCodes from './HttpStatusCodes.const';
+import HTTPStatusCodes from './HttpStatusCodes.const';
 import HTTPContentType from './HttpContentType.const';
 import { UrlWithParsedQuery } from 'url';
 import { mime } from 'send';
@@ -8,8 +8,9 @@ import fs from 'fs';
 import { parse } from 'path';
 import { RouteChild } from './index';
 
-import { getRequestURLInfo, getProtocol, getRequestIP, getHost } from './utils/URLUtils';
+import { getRequestURLInfo, getProtocol, getRequestIP, getHost, getOrigin } from './utils/URLUtils';
 import NactLogger from './logger';
+import { Blob } from 'buffer';
 
 interface NactUrlParseQuery extends Omit<UrlWithParsedQuery, 'query'> {
     query: URLSearchParams;
@@ -22,6 +23,13 @@ interface NactSendFileOption {
     disableWarning?: boolean;
 }
 
+interface NactResponseBody {
+    body: any;
+    status?: number;
+    contentType?: string;
+    isNactResonse?: boolean;
+}
+
 const SendFileDefaultOption = {
     disableWarning: false,
 };
@@ -30,24 +38,28 @@ class NactRequest {
     protected __raw: IncomingMessage;
     private response: ServerResponse | null;
     public readonly route: RouteChild | null;
-    protected closed: boolean = false;
+    public closed: boolean = false;
 
     host: string | null;
+    origin: string;
+    method: string | null;
     ip: string | null;
     protocol: 'http' | 'https';
     urldata: NactUrlParseQuery;
 
     protected __logger: NactLogger;
 
-    constructor(reg: IncomingMessage, res: ServerResponse) {
-        this.__raw = reg;
+    constructor(req: IncomingMessage, res: ServerResponse) {
+        this.__raw = req;
         this.response = res;
         this.route = null;
         this.closed = false;
-        this.host = getHost(reg);
-        this.ip = getRequestIP(reg);
-        this.protocol = getProtocol(reg);
-        this.urldata = getRequestURLInfo(reg);
+        this.host = getHost(req);
+        this.origin = (this.getHeader('Origin') ?? getOrigin(req)) as string;
+        this.method = this.__raw.method ?? null;
+        this.ip = getRequestIP(req);
+        this.protocol = getProtocol(req);
+        this.urldata = getRequestURLInfo(req);
 
         this.__logger = new NactLogger();
     }
@@ -69,38 +81,54 @@ class NactRequest {
         return this;
     }
 
+    getHeader(name: string): string | string[] | null {
+        return this.__raw.headers[name] ?? null;
+    }
+
+    header(header: string, value: boolean | number | string | string[]): NactRequest {
+        if (typeof value === 'boolean') value = `${value}`;
+
+        if (!this.closed) {
+            this.response?.setHeader(header, value);
+        }
+        return this;
+    }
+
     length(length: number): NactRequest {
         if (!this.closed) (this.response as ServerResponse).setHeader('Content-Length', length);
         return this;
     }
 
-    end(data?: any) {
+    end(data?: any): ServerResponse | undefined {
         if (this.response && !this.closed) {
             if (data) {
-                this.response.end(data);
-            }
-            this.response.end();
+                let stringifyData = JSON.stringify(data);
+                this.length(stringifyData.length);
+                return this.response.end(stringifyData);
+            } else return this.response.end();
         }
     }
 
     protected closeRequest(data?: any) {
         if (!this.closed) {
-            this.closeRequest();
+            let response = this.end(data ? data : null);
             this.closed = true;
             this.response = null;
+
+            return response;
         }
     }
 
     forbiddenRequest() {
         if (!this.closed) {
-            this.status(HttpStatusCodes.FORBIDDEN).ContentType('txt');
+            this.status(HTTPStatusCodes.FORBIDDEN).ContentType('txt');
             this.closeRequest();
         }
     }
 
     Request404() {
         if (!this.closed) {
-            this.ContentType('txt').status(HttpStatusCodes.NOT_FOUND);
+            this.ContentType('txt').status(HTTPStatusCodes.NOT_FOUND);
             this.closeRequest();
         }
     }
@@ -109,6 +137,20 @@ class NactRequest {
         let valueType = typeof value;
         if (valueType === 'object') return HTTPContentType.json;
         else if (valueType === 'string' || valueType === 'number') return HTTPContentType.text;
+        return HTTPContentType.text;
+    }
+
+    send(data: any): ServerResponse | undefined {
+        let response: NactResponseBody = { body: data?.body ?? null };
+        if (data?.isNactResonse) {
+            delete data.isNactResonse;
+            response = data as NactResponseBody;
+        }
+
+        this.ContentType(response.contentType ?? this.getMimeType(response.body));
+        this.status(response.status ?? 200);
+
+        return this.closeRequest(response.body);
     }
 
     sendFile(path: string, options: NactSendFileOption = SendFileDefaultOption) {
@@ -152,7 +194,7 @@ class NactRequest {
             if (canStream) {
                 let fileStream = fs.createReadStream(path);
                 fileStream.on('open', () => {
-                    this.status(HttpStatusCodes.OK).ContentType(type).length(stats.size);
+                    this.status(HTTPStatusCodes.OK).ContentType(type).length(stats.size);
                     fileStream.pipe(this.response as ServerResponse);
                 });
                 fileStream.on('end', () => {

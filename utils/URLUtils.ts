@@ -15,7 +15,7 @@ const splitURLParameters = (string: string): string[] => {
 };
 
 const getRequestURLInfo = (req: IncomingMessage): NactUrlParseQuery => {
-    const fullUrl = (req.headers.host ?? '') + req.url;
+    const fullUrl = getOrigin(req) + req.url;
     let parsedURLQuery = url.parse(fullUrl);
     let URL: NactUrlParseQuery = {
         ...parsedURLQuery,
@@ -25,6 +25,9 @@ const getRequestURLInfo = (req: IncomingMessage): NactUrlParseQuery => {
     return URL;
 };
 
+const getOrigin = (req: IncomingMessage): string => {
+    return getProtocol(req) + '://' + (req.headers.host ?? '');
+};
 const getProtocol = (req: IncomingMessage): 'http' | 'https' => {
     //@ts-ignore
     return req.socket.encrypted ? 'https' : 'http';
@@ -38,4 +41,4 @@ const getRequestIP = (req: IncomingMessage): string | null => {
     return req?.socket?.remoteAddress ?? null;
 };
 
-export { getRequestURLInfo, splitURLParameters, getProtocol, getHost, getRequestIP };
+export { getRequestURLInfo, splitURLParameters, getProtocol, getHost, getRequestIP, getOrigin };

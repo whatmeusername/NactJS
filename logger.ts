@@ -66,8 +66,8 @@ export default class NactLogger {
         this.__color(color, `${prefix} ${message}`, 'warning');
     }
 
-    info(message: string): void {
-        const prefix = `[NACT INFO]`;
+    info(message: string, subprefix?: string): void {
+        const prefix = `[NACT INFO${subprefix ? ' / ' + subprefix.toUpperCase() : ''}]`;
         const color = `${this.infoColor}`;
         this.__color(color, `${prefix} ${message}`, 'info');
     }

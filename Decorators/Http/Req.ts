@@ -1,7 +1,7 @@
-import { createParamRoute } from '../Utils';
+import { createRouteParamDecorator } from '../Utils';
 import NactRequest from '../../request';
 
-const Req = createParamRoute(function (req: NactRequest) {
+const Req = createRouteParamDecorator(function (req: NactRequest) {
     return req;
 });
 

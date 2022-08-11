@@ -72,7 +72,7 @@ function setParameterValue(paramKey: string) {
     };
 }
 
-function createParamRoute(func: (req: NactRequest) => any) {
+function createRouteParamDecorator(func: (req: NactRequest) => any) {
     return function (target: any, key: string, index: any): any {
         Reflect.defineMetadata(
             ROUTE__PARAMETER__METADATA,
@@ -83,4 +83,4 @@ function createParamRoute(func: (req: NactRequest) => any) {
     };
 }
 
-export { createParamRoute, setMethodForRoute, getRouteData };
+export { createRouteParamDecorator, setMethodForRoute, getRouteData };

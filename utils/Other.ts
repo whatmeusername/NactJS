@@ -2,6 +2,10 @@ const isUppercase = (value: string): boolean => {
     return value[0] === value[0].toUpperCase();
 };
 
+const isString = (value: any): boolean => {
+    return typeof value === 'string';
+};
+
 const removeSlashes = (string: string): string => {
     if (string !== '/') {
         if (string[0] === '/') string = string.slice(1);
@@ -10,4 +14,4 @@ const removeSlashes = (string: string): string => {
     return string;
 };
 
-export { isUppercase, removeSlashes };
+export { isUppercase, removeSlashes, isString };
