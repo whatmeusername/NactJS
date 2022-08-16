@@ -1,7 +1,10 @@
 {
     "compilerOptions": {
       "target": "es2016",
+      
       "experimentalDecorators": true,
+      "emitDecoratorMetadata": true,
+      
       "module": "commonjs",
       "resolveJsonModule": true,
       "allowJs": true,
@@ -10,6 +13,11 @@
       "strict": true,
       "allowSyntheticDefaultImports": true,
       
-    }
+    },
+    "exclude": [
+      "./coverage/",
+      "**/*.config.js",
+      "**/*.config.cjs"
+    ]
   }
   
