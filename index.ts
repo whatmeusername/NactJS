@@ -15,10 +15,17 @@ import HTTPContentType from "./HttpContentType.const";
 import { CONTROLLER_ROUTER__NAME, CONTROLLER__WATERMARK, ROUTE__OPTIONS } from "./router.const";
 
 import createModule from "./Services/Module/Module";
-import type { NactModule, NactTransferModule } from "./Services/Module/Module";
 import { getTransferModule } from "./Services/Module/Module";
 
-import { TestService2, TestService, TestService3, TestServiceModule1, TestServiceModule2 } from "./Services/test";
+import {
+	TestService2,
+	TestService,
+	TestService3,
+	TestServiceModule1,
+	TestServiceModule2,
+	TestServiceModule3,
+	TestServiceModuleV1,
+} from "./Services/test";
 
 interface NactRoutes {
 	[K: string]: NactRoute;
@@ -114,6 +121,7 @@ class NactServer {
 		this.IPv4 = null;
 		this.middleware = [];
 
+		getTransferModule()._initPhase();
 		this.registerController(serverSetting?.controllers ?? []);
 		this.__getLocalMachineIP();
 
@@ -337,8 +345,25 @@ function Controller(path: string): any {
 	};
 }
 
-createModule({ controllers: [ApiController], providers: [TestService, TestService2, TestService3] });
-createModule({ controllers: [], providers: [TestServiceModule1, TestServiceModule2], export: [TestServiceModule1] });
+createModule({
+	controllers: [],
+	providers: [TestServiceModule1, TestServiceModule2, TestServiceModule3],
+	import: [TestService3],
+	export: [TestServiceModule2, TestServiceModule3],
+});
+
+createModule({
+	controllers: [],
+	providers: [TestServiceModuleV1],
+	import: [TestServiceModule3],
+});
+
+createModule({
+	controllers: [ApiController],
+	providers: [TestService, TestService2, TestService3],
+	import: [TestServiceModule2],
+	export: [TestService3],
+});
 
 const controllers = [ApiController];
 
@@ -352,6 +377,7 @@ function App() {
 	app.listen(8000);
 }
 
+console.clear();
 App();
 
 export default NactServer;

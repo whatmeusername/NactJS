@@ -1,110 +1,61 @@
-import { INJECTABLE_WATERMARK, INJECTABLE_UNIQUE_TOKEN, MODULE__WATERMARK } from "../module.consts";
-import { CONTROLLER__WATERMARK } from "../../router.const";
+import { INJECTABLE_UNIQUE_TOKEN } from "../module.consts";
 import { getNactLogger } from "../../logger";
 
-interface ConstructorParam {
-	name: string;
-	index: number;
-	type: string;
-}
+import { createTransferModule, getTransferModule } from "./TransferModule";
 
-interface ConstructorData {
-	params: ConstructorParam[];
-	count: number;
-}
-
-interface ProviderData {
-	instance: any;
-	name: string;
-	uniqueToken: string;
-	constructorParams: ConstructorData;
-}
-
-interface ControllerData {
-	instance: any;
-	name: string;
-	constructorParams: ConstructorData;
-}
-
-interface ExportData {
-	name: string;
-}
-
-interface NactModuleSettings {
-	providers?: any[];
-	controllers?: any[];
-	import?: any[];
-	export?: any[];
-}
+import type { ConstructorData, ProviderData, ControllerData, ExportData, NactModuleSettings } from "./interfaces";
+import {
+	isClassInstance,
+	isInjectable,
+	isController,
+	isAllProviderResolved,
+	setModuleWaterMark,
+	getParamTypes,
+} from "./utils";
 
 const NactLogger = getNactLogger();
 
-function isClassInstance(object: any): boolean {
-	return object.prototype?.constructor?.toString().substring(0, 5) === "class";
-}
-
-function isInjectable(object: any): boolean {
-	return Reflect.getMetadata(INJECTABLE_WATERMARK, object) ? true : false;
-}
-
-function isController(object: any): boolean {
-	return Reflect.getMetadata(CONTROLLER__WATERMARK, object) ? true : false;
-}
-
-let NactTransferModuleInstance: NactTransferModule;
-function createTransferModule(modules?: NactModule[]) {
-	NactTransferModuleInstance = new NactTransferModule(modules ?? []);
-	return NactTransferModuleInstance;
-}
-
-function getTransferModule(): NactTransferModule {
-	return NactTransferModuleInstance;
-}
-
-class NactTransferModule {
-	protected readonly __modules: NactModule[];
-	protected readonly __exports: ProviderData[];
-	constructor(modules: NactModule[]) {
-		this.__modules = modules;
-		this.__exports = [];
-	}
-
-	__append(module: NactModule): void {
-		if (module?.__getModuleToken()?.startsWith("module")) {
-			this.__modules.push(module);
-		}
-		console.log(this);
-	}
-
-	__getExports(module: NactModule) {}
-
-	resolveModuleImports(module: NactModule): void {}
-}
-
-function setModuleWaterMark(module: NactModule): void {
-	Reflect.deleteMetadata(MODULE__WATERMARK, module);
-}
-
 class NactModule {
 	protected readonly __moduleToken: string;
-	import: ProviderData[];
+	readonly __moduleSettings: NactModuleSettings | null;
+	__isInited: boolean;
+
+	import: any[];
 	export: ExportData[];
-	providers: any[];
+	providers: ProviderData[];
 	controllers: ControllerData[];
 
 	constructor(settings: NactModuleSettings) {
 		this.__moduleToken = this.getUniqueToken("module");
+		this.__moduleSettings = settings;
+		this.__isInited = false;
 
 		this.providers = [];
 		this.controllers = [];
 		this.import = [];
 		this.export = [];
-
-		this.loadProviders(settings?.providers ?? []);
-		this.loadControllers(settings?.controllers ?? []);
-		setModuleWaterMark(this);
 	}
 
+	_startInit(settings?: NactModuleSettings) {
+		if (!settings) settings = this.__moduleSettings as NactModuleSettings;
+
+		if (settings && this.__isInited === false) {
+			this.loadProviders(settings?.providers ?? []);
+		}
+	}
+
+	__endInit(): void {
+		if (isAllProviderResolved(this)) {
+			this.loadControllers(this.__moduleSettings?.controllers ?? []);
+			setModuleWaterMark(this);
+
+			//@ts-ignore// Module Settings should exist till module will be impleted
+			this.__moduleSettings = null;
+			this.__isInited = true;
+		}
+	}
+
+	// ---- General ----
 	__getModuleToken(): string {
 		return this.__moduleToken;
 	}
@@ -130,7 +81,7 @@ class NactModule {
 	}
 
 	getConstructorParametersData(provider: any): ConstructorData {
-		const types = Reflect.getMetadata("design:paramtypes", provider);
+		const types = getParamTypes(provider);
 		const res: ConstructorData = { params: [], count: 0 };
 		if (types) {
 			for (let i = 0; i < types.length; i++) {
@@ -152,72 +103,134 @@ class NactModule {
 		}
 		return res;
 	}
+	// =================
 
-	loadProviders(providers: any[]) {
-		const isRegisteredProvider = (providerName: string): ProviderData | undefined => {
-			return this.providers.find((provider) => provider.name === providerName);
-		};
+	// --- Providers ---
 
-		function getProviderParams(provider: ProviderData): Array<any> {
-			const constructorParams: any[] = [];
+	getProvider(providerName: string): ProviderData | undefined {
+		return this.providers.find((provider) => provider.name === providerName);
+	}
 
-			if (provider.constructorParams.count > 0) {
-				for (let i = 0; i < provider.constructorParams.count; i++) {
-					const constructorParam = provider.constructorParams.params.find((param) => param.index === i);
-					if (constructorParam) {
-						const registeredProvider = isRegisteredProvider(constructorParam.name);
-						if (registeredProvider) {
-							constructorParams.push(registeredProvider.instance);
+	getProviderParams(provider: ProviderData): Array<any> {
+		const constructorParams: any[] = [];
+
+		if (provider.constructorParams.count > 0) {
+			for (let i = 0; i < provider.constructorParams.count; i++) {
+				const constructorParam = provider.constructorParams.params.find((param) => param.index === i);
+				if (constructorParam) {
+					const registeredProvider = this.getProvider(constructorParam.name);
+					if (registeredProvider) {
+						constructorParams.push(registeredProvider.instance);
+					} else {
+						const ProviderDepency = this.__moduleSettings?.providers?.find(
+							(provider) => provider.name === constructorParam.name
+						);
+						if (ProviderDepency) {
+							constructorParams.push(this.registerProvider(ProviderDepency)?.instance);
 						} else {
-							const ProviderDepency = providers.find((provider) => provider.name === constructorParam.name);
-							if (ProviderDepency) {
-								constructorParams.push(registerProvider(ProviderDepency)?.instance);
+							const ImportedDepency = this.import?.find((provider) => provider.name === constructorParam.name);
+							if (ImportedDepency) {
+								constructorParams.push(ImportedDepency.instance);
 							} else {
 								NactLogger.error(
 									`Nact is missing depending provider "${constructorParam.name} (index: ${constructorParam.index})" "for provider "${provider.name}". Its must be passed as provider or must imported from other module.`
 								);
 							}
 						}
-					} else constructorParams.push(undefined);
-				}
-			}
-			return constructorParams;
-		}
-
-		function resolveProviderInstance(provider: ProviderData, instance: any) {
-			let constructorParams = [];
-			if (provider.constructorParams.params.length > 0) {
-				constructorParams = getProviderParams(provider);
-			}
-			provider.instance = new instance(...constructorParams);
-		}
-
-		const registerProvider = (provider: any) => {
-			if (isInjectable(provider)) {
-				if (isClassInstance(provider)) {
-					if (!this.isRegistered(provider)) {
-						const providerData: ProviderData = {} as ProviderData;
-
-						providerData.constructorParams = this.getConstructorParametersData(provider);
-						providerData.name = provider.name;
-						providerData.uniqueToken = this.setUniqueToken(provider) as string;
-
-						resolveProviderInstance(providerData, provider);
-
-						this.providers.push(providerData);
-						return providerData;
 					}
+				} else constructorParams.push(undefined);
+			}
+		}
+		return constructorParams;
+	}
+
+	resolveProviderInstance(provider: ProviderData, instance: any) {
+		let constructorParams = [];
+		if (provider.constructorParams.params.length > 0) {
+			constructorParams = this.getProviderParams(provider);
+		}
+		provider.instance = new instance(...constructorParams);
+	}
+
+	isUsingUnresolvedImports(provider: any): boolean {
+		let res = false;
+
+		const providerNames: string[] = [];
+		const paramsNames: string[] = [];
+
+		this.getConstructorParametersData(provider).params.forEach((type) => {
+			paramsNames.push(type.name);
+		});
+
+		this.__moduleSettings?.providers?.forEach((provider) => providerNames.push(provider.name));
+
+		paramsNames.forEach((name) => {
+			if (!providerNames.includes(name)) {
+				res = this.import.find((imp) => imp.name === name && imp.resolved === false) !== undefined;
+			}
+		});
+		return res;
+	}
+
+	updateProvider(providerToken: string): ProviderData | null {
+		const providerToUpdate = this.providers.find((provider) => provider.uniqueToken === providerToken);
+		if (providerToUpdate) {
+			const providerInitialClass = this.__moduleSettings?.providers?.find(
+				(provider) => provider.name === providerToUpdate.name
+			);
+			if (providerInitialClass) {
+				if (!this.isUsingUnresolvedImports(providerInitialClass)) {
+					providerToUpdate.constructorParams = this.getConstructorParametersData(providerInitialClass);
+					this.resolveProviderInstance(providerToUpdate, providerInitialClass);
+					return providerToUpdate;
 				}
 			}
-		};
+		}
+		return null;
+	}
 
+	registerProvider = (provider: any) => {
+		if (isInjectable(provider)) {
+			if (isClassInstance(provider)) {
+				if (!this.getProvider(provider.name)) {
+					const canNotBeResolved = this.isUsingUnresolvedImports(provider);
+
+					const providerData: ProviderData = {} as ProviderData;
+
+					providerData.name = provider.name;
+					providerData.uniqueToken = this.setUniqueToken(provider, "provider") as string;
+
+					if (!canNotBeResolved) {
+						providerData.constructorParams = this.getConstructorParametersData(provider);
+						this.resolveProviderInstance(providerData, provider);
+					}
+
+					this.providers.push(providerData);
+
+					getTransferModule().__providersLocator.push({
+						name: provider.name,
+						moduleKey: this.__getModuleToken(),
+						key: providerData.uniqueToken,
+						resolved: !canNotBeResolved,
+						instance: !canNotBeResolved ? providerData.instance : null,
+					});
+
+					return providerData;
+				}
+			}
+		}
+	};
+
+	loadProviders(providers: any[]) {
 		for (let i = 0; i < providers.length; i++) {
 			const provider = providers[i];
-			registerProvider(provider);
+			this.registerProvider(provider);
 		}
 	}
 
-	loadControllers(controllers: any[]) {
+	// --- Controllers ---
+
+	registerController(controller: any) {
 		const getControllerParams = (controllerData: ControllerData) => {
 			const params: any = [];
 			if (controllerData.constructorParams.count > 0) {
@@ -244,42 +257,55 @@ class NactModule {
 			provider.instance = new instance(...constructorParams);
 		}
 
-		const registerController = (controller: any) => {
-			if (isController(controller)) {
-				if (!isInjectable(controller)) {
-					const controllerData: ProviderData = {} as ProviderData;
-					controllerData.constructorParams = this.getConstructorParametersData(controller);
-					controllerData.name = controller.name;
-					resolveControllerInstance(controllerData, controller);
+		if (isController(controller)) {
+			if (!isInjectable(controller)) {
+				const controllerData: ProviderData = {} as ProviderData;
+				controllerData.constructorParams = this.getConstructorParametersData(controller);
+				controllerData.name = controller.name;
+				resolveControllerInstance(controllerData, controller);
 
-					this.controllers.push(controllerData);
-				} else {
-					NactLogger.error(
-						`Controllers not allowed to be injectable as same time, but controller "${controller.name}" has injectable flag on.`
-					);
-				}
+				this.controllers.push(controllerData);
 			} else {
-				NactLogger.warning(
-					`Controller instance must have controller flag on, but got "${controller.name}" without it. (Instance has been passed)`
+				NactLogger.error(
+					`Controllers not allowed to be injectable as same time, but controller "${controller.name}" has injectable flag on.`
 				);
 			}
-		};
-		for (let i = 0; i < controllers.length; i++) {
-			const controller = controllers[i];
-			registerController(controller);
+		} else {
+			NactLogger.warning(
+				`Controller instance must have controller flag on, but got "${controller.name}" without it. (Instance has been passed)`
+			);
 		}
 	}
 
-	// ---- IMPORT -----
-	isImportAvailable(imports: any[]) {}
+	loadControllers(controllers: any[]) {
+		for (let i = 0; i < controllers.length; i++) {
+			const controller = controllers[i];
+			this.registerController(controller);
+		}
+	}
+
+	// ---- EXPORT -----
+	loadExports(exports: any[]) {
+		for (let i = 0; i < exports.length; i++) {
+			const exportInstanceName = exports[i].name;
+			if (exportInstanceName) {
+				const exportedProvider: ProviderData | undefined = this.__moduleSettings?.providers?.find(
+					(provider) => provider.name === exportInstanceName
+				);
+				if (exportedProvider) {
+					const providerExportData: ExportData = { name: exportInstanceName, key: exportedProvider.uniqueToken };
+					this.export.push(providerExportData);
+				}
+			}
+		}
+	}
 }
 
 function createModule(settings: NactModuleSettings) {
 	const newModule = new NactModule(settings);
-	(getTransferModule() ?? createTransferModule()).__append(newModule);
+	(getTransferModule() ?? createTransferModule())._append(newModule);
 	return newModule;
 }
 
-export type { NactModule, NactTransferModule };
-export { getTransferModule };
+export { getTransferModule, NactModule };
 export default createModule;
