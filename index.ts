@@ -1,21 +1,24 @@
 import http from "http";
 import { Socket } from "net";
 import { networkInterfaces } from "os";
-import { Ip, Param, Query, Req, Get, HttpStatus, ContentType } from "./Decorators/index";
+import { Ip, Param, Query, Req, Get, HttpStatus, ContentType } from "./packages/Decorators/index";
 import url from "url";
-import NactCors from "./Middleware/Cors/index";
+import NactCors from "./packages/Middleware/Cors/middleware";
 
-import { isUppercase } from "./utils/Other";
+import { isUppercase } from "./packages/utils/Other";
 import "reflect-metadata";
 
-import { createSharedNactLogger, NactLogger } from "./logger";
-import NactRequest from "./request";
-import HttpStatusCodes from "./HttpStatusCodes.const";
-import HTTPContentType from "./HttpContentType.const";
-import { CONTROLLER_ROUTER__NAME, CONTROLLER__WATERMARK, ROUTE__OPTIONS } from "./router.const";
+import { createSharedNactLogger, NactLogger } from "./packages/nact-logger/index";
+import { NactRequest } from "./packages/nact-request/index";
+import {
+	CONTROLLER_ROUTER__NAME,
+	CONTROLLER__WATERMARK,
+	ROUTE__OPTIONS,
+	HTTPContentType,
+	HTTPStatusCodes,
+} from "./packages/nact-constants/index";
 
-import createModule from "./Services/Module/Module";
-import { getTransferModule } from "./Services/Module/Module";
+import { createModule, getTransferModule } from "./packages/Module/index";
 
 import {
 	TestService2,
@@ -25,7 +28,7 @@ import {
 	TestServiceModule2,
 	TestServiceModule3,
 	TestServiceModuleV1,
-} from "./Services/test";
+} from "./TemperaryFolder/test";
 
 interface NactRoutes {
 	[K: string]: NactRoute;
@@ -57,7 +60,6 @@ export interface RouteChild {
 }
 
 export interface serverSettings {
-	controllers?: { new (...args: any[]): any }[];
 	loggerEnabled?: boolean;
 }
 
@@ -113,16 +115,16 @@ class NactServer {
 	IPv4: string | null;
 	logger: NactLogger;
 	middleware: any; //NactMiddleware;
-	constructor(serverSetting: serverSettings) {
+	constructor(serverSetting?: serverSettings) {
 		this.server = http.createServer(this.__RequestHandler);
 		this.serverRunningURL = null;
 		this.routes = {};
-		this.logger = createSharedNactLogger({ isEnable: serverSetting.loggerEnabled ?? true });
+		this.logger = createSharedNactLogger({ isEnable: serverSetting?.loggerEnabled ?? true });
 		this.IPv4 = null;
 		this.middleware = [];
 
 		getTransferModule()._initPhase();
-		this.registerController(serverSetting?.controllers ?? []);
+		this.registerController(getTransferModule().getModulesControllers(true));
 		this.__getLocalMachineIP();
 
 		this.logger.log("NactServer is successfully configured");
@@ -274,40 +276,58 @@ class NactServer {
 
 	registerController(controllerClass: { new (): any }[]) {
 		controllerClass.forEach((controller) => {
-			const contorllerRoute = getControllerPath(controller as any);
-			if (contorllerRoute) {
-				this.routes[contorllerRoute] = { child: {}, absolute: [], self: new controller() };
-				const CurrentRoute = this.routes[contorllerRoute];
+			const controllerConstructor = controller.constructor;
+			const contorllerRoutePath = getControllerPath(controllerConstructor as any);
+			if (contorllerRoutePath) {
+				this.routes[contorllerRoutePath] = { child: {}, absolute: [], self: controller };
+				const CurrentRoute = this.routes[contorllerRoutePath];
 
-				const controllerDescriptors = Object.getOwnPropertyDescriptors(controller.prototype);
+				const controllerDescriptors = Object.getOwnPropertyDescriptors(controllerConstructor.prototype);
 				const contorllerDescriptorKeys = Object.keys(controllerDescriptors);
+				const registeredRoutes: string[] = [];
 
 				contorllerDescriptorKeys.forEach((descriptorKey) => {
 					if (isUppercase(descriptorKey)) {
-						const routeParamters: RouteChild = Reflect.getMetadata(ROUTE__OPTIONS, controller, descriptorKey);
-						routeParamters.schema.unshift(contorllerRoute as string);
+						const descriptorConstructor = controller.constructor;
+						const routeParamters: RouteChild = Reflect.getMetadata(
+							ROUTE__OPTIONS,
+							descriptorConstructor,
+							descriptorKey
+						);
+						if (routeParamters) {
+							routeParamters.schema.unshift(contorllerRoutePath as string);
 
-						const absolutePath = contorllerRoute + "/" + routeParamters.path;
-						const isExists = findRouteByParams(CurrentRoute, routeParamters.schema) ? true : false;
+							const absolutePath = contorllerRoutePath + "/" + routeParamters.path;
+							const isExists = findRouteByParams(CurrentRoute, routeParamters.schema) ? true : false;
 
-						if (isExists) {
-							if (routeParamters.absolute) {
-								this.logger.error(
-									`Route with path "${routeParamters.path}" already exists in controller "${controller.name}"`
-								);
-							} else {
-								this.logger.error(
-									`"${controller.name}" already have route pattern that looking like "${routeParamters.path}"`
-								);
+							if (isExists) {
+								if (routeParamters.absolute) {
+									this.logger.error(
+										`Route with path "${routeParamters.path}" already exists in controller "${controller.name}"`
+									);
+								} else {
+									this.logger.error(
+										`"${controller.name}" already have route pattern that looking like "${routeParamters.path}"`
+									);
+								}
 							}
-						}
-						CurrentRoute.child[absolutePath] = { ...routeParamters, fullPath: absolutePath };
-						if (routeParamters.absolute) {
-							CurrentRoute.absolute.push(absolutePath);
+
+							CurrentRoute.child[absolutePath] = { ...routeParamters, fullPath: absolutePath };
+							if (routeParamters.absolute) {
+								CurrentRoute.absolute.push(absolutePath);
+							}
+
+							registeredRoutes.push(descriptorKey);
 						}
 					}
 				});
-				this.logger.log(`successfully registered "${controller.name}" controller`);
+				this.logger.log(
+					`successfully registered "${
+						controllerConstructor.name
+					}" controller with routes methods with names: "${registeredRoutes.join(", ")}". Total: ${
+						registeredRoutes.length
+					} routes`
+				);
 			}
 		});
 	}
@@ -328,7 +348,7 @@ class ApiController {
 	}
 
 	@Get("/:yes/hello/:id")
-	@HttpStatus(HttpStatusCodes.OK)
+	@HttpStatus(HTTPStatusCodes.OK)
 	@ContentType(HTTPContentType.text)
 	//eslint-disable-next-line
 	ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
@@ -365,19 +385,15 @@ createModule({
 	export: [TestService3],
 });
 
-const controllers = [ApiController];
-
 function App() {
-	const app = new NactServer({
-		controllers: controllers,
-	});
+	const app = new NactServer();
 
 	app.useMiddleware(NactCors({ allowedOrigin: "http://localhost:3000" }));
 
 	app.listen(8000);
 }
 
-console.clear();
+//console.clear();
 App();
 
 export default NactServer;
