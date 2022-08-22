@@ -1,3 +1,11 @@
+
+# Other
 coverage/
 TemperaryFolder/
-jest.config.txt
+jest.config.txt/
+
+# dependencies
+node_modules/
+
+# misc
+.DS_Store

@@ -12,6 +12,8 @@
       "forceConsistentCasingInFileNames": true,
       "strict": true,
       "allowSyntheticDefaultImports": true,
+
+      "strictPropertyInitialization": false,
       
     },
     "exclude": [

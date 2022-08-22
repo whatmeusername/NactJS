@@ -1,24 +1,24 @@
 import http from "http";
 import { Socket } from "net";
 import { networkInterfaces } from "os";
-import { Ip, Param, Query, Req, Get, HttpStatus, ContentType } from "./packages/Decorators/index";
+import { Ip, Param, Query, Req, Get, HttpStatus, ContentType } from "./packages/core/Decorators/index";
 import url from "url";
-import NactCors from "./packages/Middleware/Cors/middleware";
+import NactCors from "./packages/other/Middleware/Cors/middleware";
 
 import { isUppercase } from "./packages/utils/Other";
 import "reflect-metadata";
 
-import { createSharedNactLogger, NactLogger } from "./packages/nact-logger/index";
-import { NactRequest } from "./packages/nact-request/index";
+import { createSharedNactLogger, NactLogger } from "./packages/core/nact-logger/index";
+import { NactRequest } from "./packages/core/nact-request/index";
 import {
 	CONTROLLER_ROUTER__NAME,
 	CONTROLLER__WATERMARK,
 	ROUTE__OPTIONS,
 	HTTPContentType,
 	HTTPStatusCodes,
-} from "./packages/nact-constants/index";
+} from "./packages/core/nact-constants/index";
 
-import { createModule, getTransferModule } from "./packages/Module/index";
+import { createModule, createProvider, getTransferModule } from "./packages/core/Module/index";
 
 import {
 	TestService2,
@@ -29,6 +29,24 @@ import {
 	TestServiceModule3,
 	TestServiceModuleV1,
 } from "./TemperaryFolder/test";
+
+import { TypeORMModule } from "./packages/other/rootModules/TypeOrmModule/module";
+
+getTransferModule().useAsRootModule(
+	TypeORMModule.connect({
+		type: "postgres",
+		host: "localhost",
+		port: 5432,
+		username: "maksimmoiseev",
+		password: "28092004",
+		database: "test_backend",
+		synchronize: true,
+		//migrationsRun: false,
+		//entities: ["dist/**/*.entity{.ts,.js}"],
+		//migrations: ["dist/**/migrations/**/*{.ts,.js}"],
+		//logging: true,)
+	}) as any
+);
 
 interface NactRoutes {
 	[K: string]: NactRoute;
@@ -184,6 +202,7 @@ class NactServer {
 
 		if (Router) {
 			if (params.length > 1) {
+				// AT CURRENT STATE: Route is founded by path only, so we have to add METHOD SOON
 				if (Router.absolute.includes(absolutePath)) route = Router.child[absolutePath];
 				else route = findRouteByParams(Router, params);
 			} else {
@@ -375,14 +394,26 @@ createModule({
 createModule({
 	controllers: [],
 	providers: [TestServiceModuleV1],
-	import: [TestServiceModule3],
+	import: [TestServiceModule3, "test"],
 });
 
 createModule({
 	controllers: [ApiController],
-	providers: [TestService, TestService2, TestService3],
+	providers: [
+		TestService,
+		TestService2,
+		TestService3,
+		createProvider({
+			providerName: "testProvider",
+			useFactory: () => TestServiceModule1,
+		}),
+		createProvider({
+			providerName: "test",
+			useValue: "Hello from inject",
+		}),
+	],
 	import: [TestServiceModule2],
-	export: [TestService3],
+	export: [TestService3, "test"],
 });
 
 function App() {

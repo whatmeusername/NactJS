@@ -1,7 +1,7 @@
 import type { ChildRouteSchema } from "../../index";
 
-import { ROUTE__STATUS__CODE, ROUTE__CONTENT__TYPE } from "../nact-constants/index";
-import type { NactRequest } from "../nact-request/request";
+import { ROUTE__STATUS__CODE, ROUTE__CONTENT__TYPE } from "../core/nact-constants/index";
+import type { NactRequest } from "../core/nact-request/request";
 import type { NactRouteResponse, RouteChild } from "../../index";
 
 const isDynamicPathSegment = (path: string): boolean => {
