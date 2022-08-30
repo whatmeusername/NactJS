@@ -21,7 +21,6 @@ import {
 import { createModule, createProvider, getTransferModule } from "./packages/core/Module/index";
 
 import {
-	TestService2,
 	TestService,
 	TestService3,
 	TestServiceModule1,
@@ -30,10 +29,10 @@ import {
 	TestServiceModuleV1,
 } from "./TemperaryFolder/test";
 
-import { TypeORMModule } from "./packages/other/rootModules/TypeOrmModule/module";
+import { TypeORMModule, TestEntity } from "./packages/other/rootModules/TypeOrmModule/module";
 
 getTransferModule().useAsRootModule(
-	TypeORMModule.connect({
+	TypeORMModule.root({
 		type: "postgres",
 		host: "localhost",
 		port: 5432,
@@ -41,6 +40,7 @@ getTransferModule().useAsRootModule(
 		password: "28092004",
 		database: "test_backend",
 		synchronize: true,
+		autoLoadEntities: true,
 		//migrationsRun: false,
 		//entities: ["dist/**/*.entity{.ts,.js}"],
 		//migrations: ["dist/**/migrations/**/*{.ts,.js}"],
@@ -164,10 +164,7 @@ class NactServer {
 
 	useMiddleware(middleware: (req: NactRequest) => void) {
 		this.middleware.push(middleware);
-		this.logger.info(
-			`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`,
-			"MIDDLEWARE"
-		);
+		this.logger.info(`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`, "MIDDLEWARE");
 		return this;
 	}
 
@@ -308,11 +305,7 @@ class NactServer {
 				contorllerDescriptorKeys.forEach((descriptorKey) => {
 					if (isUppercase(descriptorKey)) {
 						const descriptorConstructor = controller.constructor;
-						const routeParamters: RouteChild = Reflect.getMetadata(
-							ROUTE__OPTIONS,
-							descriptorConstructor,
-							descriptorKey
-						);
+						const routeParamters: RouteChild = Reflect.getMetadata(ROUTE__OPTIONS, descriptorConstructor, descriptorKey);
 						if (routeParamters) {
 							routeParamters.schema.unshift(contorllerRoutePath as string);
 
@@ -394,19 +387,15 @@ createModule({
 createModule({
 	controllers: [],
 	providers: [TestServiceModuleV1],
-	import: [TestServiceModule3, "test"],
+	import: [TestServiceModule3, TestService3],
 });
 
 createModule({
 	controllers: [ApiController],
 	providers: [
+		TypeORMModule.getRepositories([TestEntity]),
 		TestService,
-		TestService2,
 		TestService3,
-		createProvider({
-			providerName: "testProvider",
-			useFactory: () => TestServiceModule1,
-		}),
 		createProvider({
 			providerName: "test",
 			useValue: "Hello from inject",

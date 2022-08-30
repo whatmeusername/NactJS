@@ -1,11 +1,11 @@
-interface ConstructorParam {
+interface ParameterData {
 	name: string;
 	index: number;
 	type: string;
 }
 
 interface ConstructorData {
-	params: ConstructorParam[];
+	params: ParameterData[];
 	count: number;
 }
 
@@ -50,10 +50,10 @@ interface ProviderLocation {
 
 interface NactCustomProviderSettings {
 	providerName: string;
-	useFactory?: (...args: any[]) => object;
+	useFactory?: (...args: any[]) => any;
 	useValue?: any;
 	useClass?: (new (...args: any[]) => object) | object;
-	injectParameters?: string[];
+	injectParameters?: ((new (...args: any[]) => object) | string)[];
 }
 
 interface NactCustomProvider extends NactCustomProviderSettings {
@@ -62,7 +62,7 @@ interface NactCustomProvider extends NactCustomProviderSettings {
 }
 
 export {
-	ConstructorParam,
+	ParameterData,
 	ConstructorData,
 	ProviderData,
 	ControllerData,

@@ -1,6 +1,28 @@
-import type { NactModuleSettings, TransferModuleExportsOrImport, ProviderLocation } from "./index";
-import { NactModule, moduleHasImport, isModule, isRootModule } from "./index";
+import { getNactLogger } from "../nact-logger/index";
 
+import type {
+	NactModuleSettings,
+	TransferModuleExportsOrImport,
+	ProviderLocation,
+	ProviderData,
+	NactCustomProvider,
+	ParameterData,
+	ConstructorData,
+} from "./index";
+import {
+	NactModule,
+	moduleHasImport,
+	isModule,
+	isRootModule,
+	isCustomProvider,
+	isClassInstance,
+	mapCustomProviderArgs,
+	getConstructorParametersData,
+	unpackModuleArrays,
+	resolveRootCustomProviderFactory,
+} from "./index";
+
+// const logger = getNactLogger();
 let NactTransferModuleInstance: NactTransferModule;
 
 function getTransferModule(): NactTransferModule {
@@ -41,12 +63,27 @@ class NactTransferModule {
 	}
 
 	useAsRootModule(settings: NactRootModuleSettings) {
-		const create = (settings: NactRootModuleSettings) => {
-			const module = createRootModule(settings);
-			if (isRootModule(module)) {
-				this.__modules.push(module);
-				this._getExports(module);
+		const exportAllProviders = (settings: NactRootModuleSettings): NactRootModuleSettings => {
+			const providers = settings.providers ?? [];
+			settings.export = [];
+
+			for (let i = 0; i < providers.length; i++) {
+				const provider = providers[i];
+				if (isCustomProvider(provider)) {
+					settings?.export?.push(provider.providerName);
+				} else if (isClassInstance(provider)) {
+					settings?.export?.push(provider.name);
+				}
 			}
+
+			return settings;
+		};
+		const create = (settings: NactRootModuleSettings) => {
+			exportAllProviders(settings);
+			const module = createRootModule(settings);
+			this.__modules.unshift(module);
+			module.loadExports(module.__moduleSettings?.export ?? []);
+			this._getExports(module);
 		};
 
 		if (settings instanceof Promise) {
@@ -116,6 +153,7 @@ class NactTransferModule {
 			const unresProvidersCurrentInter = countUnresolvedProviders();
 			if (unresProvidersPreviousInter === unresProvidersCurrentInter) {
 				console.log("resolve error");
+				break;
 			} else unresProvidersPreviousInter = unresProvidersCurrentInter;
 		}
 	}
@@ -148,11 +186,31 @@ class NactTransferModule {
 		const begin = () => {
 			this.__phase = "resolving";
 			for (let i = 0; i < this.__modules.length; i++) {
-				this.__InitModuleSync(this.__modules[i]);
+				const module = this.__modules[i];
+
+				const providers = module?.__moduleSettings?.providers ?? [];
+
+				this.isModuleUsingRootExports(module);
+				this.__InitModuleSync(module);
 			}
 			this.__beginResolvingPhase();
 			this.__closingResolvingPhase();
 		};
+
+		this.__modules.forEach((module: NactModule) => {
+			if (isRootModule(module)) {
+				const providers = module?.__moduleSettings?.providers ?? [];
+				providers.forEach((provider) => {
+					if (isCustomProvider(provider)) {
+						const res = resolveRootCustomProviderFactory(provider);
+						if (res instanceof Promise) {
+							this.__asyncQueryCount += 1;
+							res.then((_) => (this.__asyncQueryCount -= 1));
+						}
+					}
+				});
+			}
+		});
 
 		let asyncTimeLimit = 1000;
 		const timeout = 75;
@@ -174,6 +232,7 @@ class NactTransferModule {
 	_append(module: NactModule | NactModule[]): void {
 		const append = (module: NactModule) => {
 			if (isModule(module)) {
+				unpackModuleArrays(module);
 				this.__modules.push(module);
 				module.loadExports(module.__moduleSettings?.export ?? []);
 				this._getExports(module);
@@ -215,6 +274,7 @@ class NactTransferModule {
 			for (let i = 0; i < moduleImports.length; i++) {
 				const moduleImport = moduleImports[i];
 				const currentImportName = typeof moduleImport === "string" ? moduleImport : moduleImports[i].name;
+
 				if (this.canBeImported(currentImportName)) {
 					if (!moduleHasImport(module, currentImportName)) {
 						const importedProvider = this.__providersLocator.find((provider) => provider.name === currentImportName);
@@ -224,8 +284,10 @@ class NactTransferModule {
 						} else {
 							const unresolvedProvider = this.getProviderLocationByName(currentImportName);
 							if (unresolvedProvider.provider) {
+								const providerName = unresolvedProvider.provider.name ?? unresolvedProvider.provider.providerName;
+
 								module.import.push({
-									name: unresolvedProvider.provider.name ?? unresolvedProvider.provider.providerName,
+									name: providerName,
 									moduleKey: unresolvedProvider.moduleKey,
 									resolved: false,
 									instance: null,
@@ -234,7 +296,7 @@ class NactTransferModule {
 							}
 						}
 					} else {
-						const importedProvider = this.__providersLocator.find((provider) => provider.name === currentImportName);
+						const importedProvider = this.__providersLocator.find((p) => p.name === currentImportName);
 						const importPosition = module.import.findIndex(
 							(imp) => imp.name === currentImportName && imp.resolved === false
 						);
@@ -243,6 +305,59 @@ class NactTransferModule {
 				}
 			}
 		}
+	}
+
+	// ---- Validating -----
+	isModuleUsingRootExports(module: NactModule): { r: boolean; p: string[] } {
+		const result = { r: false, p: [] };
+		const moduleSettings = module.__moduleSettings;
+
+		const initialProviders = moduleSettings?.providers ?? [];
+		const initialControllers = moduleSettings?.controllers ?? [];
+
+		const rootExports = this.__exports.filter((exp) => exp.moduleKey.startsWith("root-module") === true);
+
+		const moduleNotImportedModules: string[] = [];
+		const moduleImports = moduleSettings?.import?.map((imp) => (typeof imp === "string" ? imp : imp?.name));
+		let providersParameters: ParameterData[] = [];
+
+		const resolveGlobalImports = (): void => {
+			for (let i = 0; i < providersParameters.length; i++) {
+				const param = providersParameters[i];
+				if (!moduleNotImportedModules.includes(param.name) && !moduleImports?.includes(param.name)) {
+					const importIndex = rootExports.findIndex((exp) => exp.providerName === param.name);
+					if (importIndex !== -1) {
+						moduleSettings?.import?.push(rootExports[importIndex].providerName);
+					}
+				}
+			}
+		};
+
+		for (let i = 0; i < initialProviders.length; i++) {
+			if (isCustomProvider(initialProviders[i])) {
+				const customProvider: NactCustomProvider = initialProviders[i];
+				moduleNotImportedModules.push(customProvider.providerName);
+				if (customProvider?.injectParameters) {
+					const injectParameters = mapCustomProviderArgs(customProvider.injectParameters);
+					providersParameters = [...providersParameters, ...injectParameters];
+				}
+			} else if (isClassInstance(initialProviders[i])) {
+				const provider: ProviderData = initialProviders[i];
+				moduleNotImportedModules.push(provider.name);
+				const providerParameters: ConstructorData = getConstructorParametersData(provider, true);
+				providersParameters = [...providersParameters, ...providerParameters.params];
+			}
+		}
+
+		for (let i = 0; i < initialControllers.length; i++) {
+			const controller = initialControllers[i];
+			const controllerParameters: ConstructorData = getConstructorParametersData(controller, true);
+			providersParameters = [...providersParameters, ...controllerParameters.params];
+		}
+
+		resolveGlobalImports();
+
+		return result;
 	}
 }
 

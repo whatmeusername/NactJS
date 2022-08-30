@@ -1,8 +1,9 @@
-import { DataSource, Entity, Column, PrimaryGeneratedColumn } from "typeorm";
-import type { EntitySchema, DataSourceOptions } from "typeorm";
+import { DataSource, Entity, Column, PrimaryGeneratedColumn, EntitySchema } from "typeorm";
+import type { DataSourceOptions } from "typeorm";
 
-import type { NactRootModuleSettings, NactCustomProvider } from "../../../core/Module/index";
-import { createProvider } from "../../../core/Module/index";
+import type { NactRootModuleSettings, NactCustomProvider, NactCustomProviderSettings } from "../../../core/Module/index";
+import { createProvider, isClassInstance } from "../../../core/Module/index";
+import { Inject } from "../../../core/Decorators/Inject/index";
 
 @Entity()
 class TestEntity {
@@ -33,16 +34,56 @@ type DataSourceToken = string | DataSource;
 //eslint-disable-next-line
 type EntityClassOrSchema = Function | EntitySchema;
 
-const getDataSourceToken = (DataSource: DataSourceToken): string => {
-	const dbToken = typeof DataSource === "string" ? DataSource : DataSource.driver.database;
-	return `typeorm-datasource-${dbToken}`;
+const getDataSourceToken = (DataSource?: DataSourceToken | TypeOrmRootProviderSettings): string => {
+	if (DataSource) {
+		const dbToken =
+			typeof DataSource === "string"
+				? DataSource
+				: (DataSource as TypeOrmRootProviderSettings).database ?? DataSource.driver.database;
+		const token = `DATASOURCE_${dbToken?.toLowerCase()}`;
+		if (DatabaseStorage.default.original === token) return token;
+	}
+	return DatabaseStorage.default.prefix;
 };
 
-class DatabaseEntityStorage {
-	protected static readonly storage = new Map<string, EntityClassOrSchema[]>();
+const getRepositoryToken = (Entity: EntityClassOrSchema, DataSource?: DataSourceToken): string | undefined => {
+	let Token = DataSource ? (isDataSourceToken(DataSource) ? DataSource : getDataSourceToken(DataSource)) : null;
 
-	static addEntityByDataSource(DataSource: DataSourceToken, Entity: EntityClassOrSchema[] | EntityClassOrSchema): void {
-		const token = getDataSourceToken(DataSource);
+	if (!DataSource) {
+		Token = DatabaseStorage.getDataSourceTokenByIndex(0);
+	}
+
+	let entityName = "";
+	if (Entity instanceof EntitySchema) {
+		entityName = Entity.options.target ? Entity.options.target.name : Entity.options.name;
+	} else if (isClassInstance(Entity)) {
+		entityName = Entity.name;
+	}
+
+	if (Token) {
+		return `ENTITY_${entityName}_${Token}`;
+	} else {
+		// TODO ---
+		throw new Error();
+	}
+};
+
+const isDataSourceToken = (value: any): boolean => {
+	return typeof value === "string" && value.startsWith("DATASOURCE");
+};
+
+const DEFAULT_DS_TOKEN = "DATASOURCE_DEFAULT";
+
+class DatabaseStorage {
+	protected static readonly storage = new Map<string, EntityClassOrSchema[]>();
+	protected static readonly datasourceTokensStorage = new Map<string, string[]>();
+	static default = { original: "", prefix: DEFAULT_DS_TOKEN };
+
+	static addEntityByDataSource(
+		DataSource: DataSourceToken | string,
+		Entity: EntityClassOrSchema[] | EntityClassOrSchema
+	): void {
+		const token = isDataSourceToken(DataSource) ? (DataSource as string) : getDataSourceToken(DataSource);
 
 		if (token) {
 			let entities = this.storage.get(token);
@@ -64,22 +105,60 @@ class DatabaseEntityStorage {
 	}
 
 	static getEntitiesByDataSource(DataSource: DataSourceToken): EntityClassOrSchema[] | undefined {
-		const token = typeof DataSource === "string" ? DataSource : DataSource.driver.database;
+		const token = getDataSourceToken(DataSource);
 
 		if (token) {
 			return this.storage.get(token);
 		}
 	}
 
-	static onLastPhase() {}
-}
+	static HasDataSource(Token?: string): boolean {
+		if (Token) {
+			const datasourceTokens = this.datasourceTokensStorage.get("DATASOURCE__TOKENS") ?? [];
+			return datasourceTokens.find((token) => token === Token) !== undefined;
+		}
+		return false;
+	}
 
-function getDataSourceProvider(DataSource: DataSource): NactCustomProvider {
-	const providerToken = getDataSourceToken(DataSource);
-	return createProvider({
-		providerName: providerToken,
-		useClass: DataSource,
-	});
+	static getDataSource(DataSource?: DataSourceToken): string | undefined | string[] | { original: string; prefix: string } {
+		const datasourceTokens = this.datasourceTokensStorage.get("DATASOURCE__TOKENS") ?? [];
+
+		if (datasourceTokens.length > 1 && datasourceTokens.length > 0) {
+			if (DataSource) {
+				const Token = getDataSourceToken(DataSource);
+				if (Token) {
+					return datasourceTokens.find((token) => token === Token);
+				}
+			}
+		}
+		return this.default.prefix;
+	}
+
+	static getDataSourceTokenByIndex(index: number): string {
+		const tokens = this.datasourceTokensStorage.get("DATASOURCE__TOKENS");
+		return tokens ? tokens[index] : DEFAULT_DS_TOKEN;
+	}
+
+	static addDataSourceToken(dataSource: DataSource | string): string | undefined {
+		const isToken = typeof dataSource === "string" && dataSource.startsWith("DATASOURCE");
+		const tokens = this.datasourceTokensStorage.get("DATASOURCE__TOKENS") ?? [];
+
+		let Token;
+		if (isToken) Token = dataSource;
+		else if (dataSource instanceof DataSource) {
+			Token = getDataSourceToken(dataSource);
+		}
+		if (Token) {
+			this.datasourceTokensStorage.set("DATASOURCE__TOKENS", [...tokens, Token]);
+
+			const canHasDefault = tokens.length <= 1;
+			if (canHasDefault) {
+				this.default.original = Token;
+				Token = DEFAULT_DS_TOKEN;
+			}
+			return Token;
+		}
+	}
 }
 
 class TypeORMModule {
@@ -87,48 +166,107 @@ class TypeORMModule {
 
 	constructor() {}
 
-	static async connect(
-		options: TypeOrmRootProviderSettings | TypeOrmRootProviderSettings[]
-	): Promise<NactRootModuleSettings> {
+	static root(options: TypeOrmRootProviderSettings | TypeOrmRootProviderSettings[]): NactRootModuleSettings {
 		const providers: NactCustomProvider[] = [];
-
-		const initializeDataSource = async (options: TypeOrmRootProviderSettings): Promise<DataSource> => {
-			const dataSource = new DataSource(options as DataSourceOptions);
-			const dataSourceToken = getDataSourceToken(dataSource);
-
-			this.options[dataSourceToken] = options;
-
-			if (!options.autoLoadEntities) {
-				const storedEntities = DatabaseEntityStorage.getEntitiesByDataSource(dataSource) ?? [];
-				const dataSourceEntities = (options.entities as EntityClassOrSchema[]) ?? [];
-				options.entities = [...storedEntities, ...dataSourceEntities];
-			}
-			await deferConnection(() => {
-				dataSource.initialize();
-			});
-
-			return dataSource;
-		};
-
 		options = Array.isArray(options) ? options : [options];
+
 		for (let i = 0; i < options.length; i++) {
 			const option = options[i];
-			const dataSource = await initializeDataSource(option);
+			const dataSourceToken = getDataSourceToken(option);
 
-			this.options[getDataSourceToken(dataSource)] = option;
-			providers.push(getDataSourceProvider(dataSource));
+			if (dataSourceToken) {
+				this.options[dataSourceToken] = option;
+				providers.push(this.getDataSourceProvider(option));
+			}
 		}
 
 		return {
 			providers: providers,
-			exports: [],
 		};
 	}
-	static async getRepositories(repositories: EntityClassOrSchema[], dataSource?: DataSource): Promise<any> {
-		console.log(dataSource);
+
+	protected static initializeDataSource = async (options: TypeOrmRootProviderSettings): Promise<DataSource> => {
+		const dataSource = new DataSource(options as DataSourceOptions);
+		const dataSourceToken = DatabaseStorage.addDataSourceToken(getDataSourceToken(dataSource));
+
+		if (dataSourceToken) {
+			this.options[dataSourceToken] = options;
+
+			if (options.autoLoadEntities) {
+				const storedEntities = DatabaseStorage.getEntitiesByDataSource(dataSource) ?? [];
+				const dataSourceEntities = (options.entities as EntityClassOrSchema[]) ?? [];
+				options.entities = [...storedEntities, ...dataSourceEntities];
+			}
+		}
+		if (!dataSource.isInitialized) {
+			await deferConnection(() => {
+				dataSource.initialize();
+			});
+		}
+		return dataSource;
+	};
+
+	protected static getDataSourceProvider(options: TypeOrmRootProviderSettings): NactCustomProvider {
+		const providerToken = getDataSourceToken(options);
+		const settings: NactCustomProviderSettings = { providerName: providerToken };
+
+		settings.useFactory = () => {
+			const DataSource = this.initializeDataSource(options);
+			return DataSource;
+		};
+
+		return createProvider(settings);
+	}
+
+	static getRepositoryProvider(entity: EntityClassOrSchema, dataSourceToken: string): NactCustomProviderSettings {
+		const EntityToken = getRepositoryToken(entity, dataSourceToken) as string;
+		return createProvider({
+			providerName: EntityToken,
+			useFactory: (dataSource: DataSource) => {
+				const enitityMetadata = dataSource.entityMetadatas.find((meta) => meta.target === entity);
+				const isTreeEntity = typeof enitityMetadata?.treeType !== "undefined";
+				let repository;
+				if (isTreeEntity) {
+					repository = dataSource.getTreeRepository(entity);
+				} else {
+					repository =
+						dataSource.options.type === "mongodb" ? dataSource.getMongoRepository(entity) : dataSource.getRepository(entity);
+				}
+				return repository;
+			},
+			injectParameters: [dataSourceToken],
+		});
+	}
+
+	static getRepositories(entities: EntityClassOrSchema[], dataSource?: DataSource): any {
+		const DataSourceToken = dataSource
+			? (DatabaseStorage.getDataSource(dataSource) as string)
+			: DatabaseStorage.getDataSourceTokenByIndex(0);
+		const providers = [];
+		if (DataSourceToken) {
+			DatabaseStorage.addEntityByDataSource(DataSourceToken, entities);
+			for (let i = 0; i < entities.length; i++) {
+				const entity = entities[i];
+				const hasToken = getRepositoryToken(entity, DataSourceToken);
+				if (hasToken) {
+					providers.push(this.getRepositoryProvider(entity, DataSourceToken));
+				}
+			}
+		}
+		return providers;
 	}
 
 	doThings() {}
 }
 
 export { TypeORMModule };
+
+const InjectDataSource = (databaseName?: string) => {
+	const Token = getDataSourceToken(databaseName);
+	return Inject(Token);
+};
+
+const InjectRepository = (Entity: EntityClassOrSchema, database?: string) =>
+	Inject(getRepositoryToken(Entity, database) as string);
+
+export { InjectDataSource, InjectRepository, TestEntity };

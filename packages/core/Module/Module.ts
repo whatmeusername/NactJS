@@ -1,4 +1,4 @@
-import { INJECTABLE_UNIQUE_TOKEN, PROPERTY_DEPENDENCIES } from "../nact-constants/index";
+import { INJECTABLE_UNIQUE_TOKEN } from "../nact-constants/index";
 import { getNactLogger } from "../nact-logger/index";
 
 import {
@@ -9,13 +9,14 @@ import {
 	isController,
 	isAllProviderResolved,
 	setModuleWaterMark,
-	getParamTypes,
 	isUndefined,
 	isCustomProvider,
+	getUniqueToken,
+	mapCustomProviderArgs,
+	getConstructorParametersData,
 } from "./index";
 
 import type {
-	ConstructorData,
 	ProviderData,
 	ControllerData,
 	ExportData,
@@ -25,40 +26,6 @@ import type {
 } from "./index";
 
 const NactLogger = getNactLogger();
-
-function getConstructorParametersData(provider: any, validateType?: boolean): ConstructorData {
-	const types = getParamTypes(provider);
-	const res: ConstructorData = { params: [], count: 0 };
-
-	const injectableProperties = Reflect.getMetadata(PROPERTY_DEPENDENCIES, provider);
-	if (injectableProperties) res.params = [...res.params, ...injectableProperties];
-
-	function isInjectedProperty(index: number): boolean {
-		return res.params.find((param) => param.index === index && param.type === "inject") !== undefined;
-	}
-
-	if (types) {
-		for (let i = 0; i < types.length; i++) {
-			const paramType = types[i];
-			if (paramType === undefined && !validateType) {
-				NactLogger.error(
-					`Cannot resolve constructor parameter of class "${provider.name}" with index ${i}, because of "${paramType}" value. Maybe is circular dependency, that not cant be handled.`
-				);
-			} else if (!isInjectedProperty(i) && !isClassInstance(paramType) && !validateType) {
-				NactLogger.warning(
-					`Parameter of class constructor "${provider.name}" with type "| ${paramType} |" and index ${i} will not be injected due is not class instance.`
-				);
-			} else if (isClassInstance(paramType)) {
-				res.params.push({ name: paramType.name, index: i, type: "class" });
-			}
-			res.count += 1;
-		}
-	}
-
-	if (injectableProperties) res.params.sort((a, b) => a.index - b.index);
-
-	return res;
-}
 
 class NactModule {
 	protected readonly __moduleToken: string;
@@ -85,13 +52,13 @@ class NactModule {
 		if (!settings) settings = this.__moduleSettings as NactModuleSettings;
 
 		if (settings && this.__isInited === false) {
-			this.loadProviders(settings?.providers ?? []);
+			this.mapProviders(settings?.providers ?? []);
 		}
 	}
 
 	__endInit(): void {
 		if (isAllProviderResolved(this)) {
-			this.loadControllers(this.__moduleSettings?.controllers ?? []);
+			this.mapControllers(this.__moduleSettings?.controllers ?? []);
 			setModuleWaterMark(this);
 
 			//@ts-ignore// Module Settings should exist till module will be impleted
@@ -127,25 +94,31 @@ class NactModule {
 		return this.providers.find((provider) => provider.name === providerName);
 	}
 
-	getProviderParams(provider: ProviderData): Array<any> {
+	getProviderParams(provider: ProviderData | NactCustomProvider): Array<any> {
 		const constructorParams: any[] = [];
 
-		if (provider.constructorParams.count > 0) {
-			for (let i = 0; i < provider.constructorParams.count; i++) {
-				const constructorParam = provider.constructorParams.params.find((param) => param.index === i);
+		const isCustom = isCustomProvider(provider);
+		const params = isCustom
+			? mapCustomProviderArgs((provider as NactCustomProvider)?.injectParameters ?? [])
+			: (provider as ProviderData).constructorParams.params;
+
+		const paramsCount = isCustom ? params.length : (provider as ProviderData).constructorParams.count;
+		const providerName = isCustom ? (provider as NactCustomProvider).providerName : (provider as ProviderData).name;
+
+		if (paramsCount > 0) {
+			for (let i = 0; i < paramsCount; i++) {
+				const constructorParam = params.find((param) => param.index === i);
 				if (constructorParam) {
 					const registeredProvider = this.getProvider(constructorParam.name);
 					if (registeredProvider) {
 						constructorParams.push(registeredProvider.instance);
 					} else {
 						const ProviderDepency = this.__moduleSettings?.providers?.find(
-							(provider) =>
-								provider.name === constructorParam.name ||
-								(isCustomProvider(provider) && provider.providerName === constructorParam.name)
+							(p) => p.name === constructorParam.name || (isCustomProvider(p) && p.providerName === constructorParam.name)
 						);
 						if (ProviderDepency) {
 							if (isCustomProvider(ProviderDepency)) {
-								constructorParams.push(this.resolveCustomProvider(ProviderDepency).instance);
+								constructorParams.push(this.resolveCustomProvider(ProviderDepency)?.instance);
 							} else {
 								constructorParams.push(this.registerProvider(ProviderDepency)?.instance);
 							}
@@ -157,7 +130,7 @@ class NactModule {
 								constructorParams.push(ImportedDepency.instance);
 							} else {
 								NactLogger.error(
-									`Nact is missing depending provider "${constructorParam.name} (index: ${constructorParam.index})" "for provider "${provider.name}". Its must be passed as provider or must imported from other module.`
+									`Nact is missing depending provider "${constructorParam.name} (index: ${constructorParam.index})" "for provider "${providerName}". Its must be passed as provider or must imported from other module.`
 								);
 							}
 						}
@@ -183,7 +156,11 @@ class NactModule {
 		const providerNames: string[] = [];
 		const paramsNames: string[] = [];
 
-		getConstructorParametersData(provider, true).params.forEach((type) => {
+		const params = isCustomProvider(provider)
+			? mapCustomProviderArgs(provider.injectParameters)
+			: getConstructorParametersData(provider, true).params;
+
+		params.forEach((type) => {
 			paramsNames.push(type.name);
 		});
 
@@ -200,12 +177,21 @@ class NactModule {
 	updateProvider(providerToken: string): ProviderData | null {
 		const providerToUpdate = this.providers.find((provider) => provider.uniqueToken === providerToken);
 		if (providerToUpdate) {
-			const providerInitialClass = this.__moduleSettings?.providers?.find(
-				(provider) => provider.name === providerToUpdate.name
+			const initialProvider = this.__moduleSettings?.providers?.find(
+				(provider) => provider.name === providerToUpdate.name || provider.providerName === providerToUpdate.name
 			);
-			if (providerInitialClass) {
-				if (!this.isUsingUnresolvedImports(providerInitialClass)) {
-					this.resolveProviderInstance(providerToUpdate, providerInitialClass);
+			if (initialProvider) {
+				if (isCustomProvider(initialProvider)) {
+					if (!this.isUsingUnresolvedImports(initialProvider)) {
+						const injectArguments = this.getProviderParams(initialProvider);
+						if (initialProvider.useFactory) {
+							const providerValue = initialProvider.useFactory(...injectArguments);
+							providerToUpdate.instance = providerValue;
+							return providerToUpdate;
+						}
+					}
+				} else if (!this.isUsingUnresolvedImports(initialProvider)) {
+					this.resolveProviderInstance(providerToUpdate, initialProvider);
 					return providerToUpdate;
 				}
 			}
@@ -215,12 +201,16 @@ class NactModule {
 
 	resolveCustomProvider(customProvider: NactCustomProvider): ProviderData {
 		let providerValue: any = undefined;
+		let isResolved = true;
 		const providerData: ProviderData = {} as ProviderData;
 
 		if (customProvider.willBeResolvedBy === "useFactory" && customProvider.useFactory) {
-			providerValue = customProvider.useFactory();
-
-			this.resolveProviderInstance(providerData, providerValue);
+			if (!this.isUsingUnresolvedImports(customProvider)) {
+				const injectArguments = this.getProviderParams(customProvider);
+				providerData.instance = customProvider.useFactory(...injectArguments);
+			} else {
+				isResolved = false;
+			}
 		} else if (customProvider.willBeResolvedBy === "useClass") {
 			const classInstance = customProvider.useClass;
 			if (!isInitializedClass(classInstance)) {
@@ -241,8 +231,8 @@ class NactModule {
 			name: customProvider.providerName,
 			moduleKey: this.getModuleToken(),
 			key: providerData.uniqueToken,
-			resolved: true,
-			instance: providerData.instance,
+			resolved: isResolved,
+			instance: isResolved ? providerData.instance : null,
 		});
 
 		return providerData;
@@ -285,7 +275,7 @@ class NactModule {
 		}
 	};
 
-	loadProviders(providers: any[]) {
+	mapProviders(providers: any[]) {
 		for (let i = 0; i < providers.length; i++) {
 			const provider = providers[i];
 			this.registerProvider(provider);
@@ -300,7 +290,7 @@ class NactModule {
 			if (controllerData.constructorParams.count > 0) {
 				for (let i = 0; i < controllerData.constructorParams.count; i++) {
 					const constructorParam = controllerData.constructorParams.params[i];
-					const provider = this.providers.find((provider) => provider.name === constructorParam.name);
+					const provider = this.getProvider(constructorParam.name);
 					if (provider) {
 						params.push(provider.instance);
 					} else {
@@ -341,7 +331,7 @@ class NactModule {
 		}
 	}
 
-	loadControllers(controllers: any[]) {
+	mapControllers(controllers: any[]) {
 		for (let i = 0; i < controllers.length; i++) {
 			const controller = controllers[i];
 			this.registerController(controller);
@@ -364,10 +354,6 @@ class NactModule {
 			}
 		}
 	}
-}
-
-function getUniqueToken(prefix?: string): string {
-	return (prefix ? `${prefix}-` : "") + Math.random().toString(36).slice(5) + "-" + Math.random().toString(36).slice(5);
 }
 
 function createModule(settings: NactModuleSettings) {
