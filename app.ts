@@ -31,7 +31,7 @@ import {
 
 import { TypeORMModule, TestEntity } from "./packages/other/rootModules/TypeOrmModule/module";
 
-getTransferModule().useAsRootModule(
+getTransferModule().useRootModule(
 	TypeORMModule.root({
 		type: "postgres",
 		host: "localhost",
@@ -141,7 +141,7 @@ class NactServer {
 		this.IPv4 = null;
 		this.middleware = [];
 
-		getTransferModule()._initPhase();
+		getTransferModule().initialize();
 		this.registerController(getTransferModule().getModulesControllers(true));
 		this.__getLocalMachineIP();
 
@@ -233,7 +233,7 @@ class NactServer {
 		const transferModule = createNewTransferModule();
 		this.routes = {};
 		cb();
-		transferModule._initPhase();
+		transferModule.initialize();
 	}
 
 	injectRequest(RequestData: InjectRequest) {

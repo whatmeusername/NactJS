@@ -144,7 +144,7 @@ function resolveRootCustomProviderFactory(provider: NactCustomProvider): any {
 			NactLogger.error("Nact root modules cant use imports or injectParameters for custom providers");
 		}
 		const factoryValue = provider.useFactory();
-		provider.willBeResolvedBy = "useValue";
+		provider.willUse = "useValue";
 		if (factoryValue instanceof Promise) {
 			factoryValue.then((res) => {
 				provider.useValue = res;

@@ -57,7 +57,7 @@ interface NactCustomProviderSettings {
 }
 
 interface NactCustomProvider extends NactCustomProviderSettings {
-	willBeResolvedBy: string;
+	willUse: string;
 	uniqueToken: string;
 }
 
