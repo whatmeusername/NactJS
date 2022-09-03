@@ -18,7 +18,7 @@ import {
 	HTTPStatusCodes,
 } from "./packages/core/nact-constants/index";
 
-import { createModule, createProvider, getTransferModule } from "./packages/core/Module/index";
+import { createModule, createProvider, getTransferModule, createNewTransferModule } from "./packages/core/Module/index";
 
 import {
 	TestService,
@@ -27,7 +27,7 @@ import {
 	TestServiceModule2,
 	TestServiceModule3,
 	TestServiceModuleV1,
-} from "./TemperaryFolder/test";
+} from "./TemperaryFolder/TestServices";
 
 import { TypeORMModule, TestEntity } from "./packages/other/rootModules/TypeOrmModule/module";
 
@@ -164,7 +164,10 @@ class NactServer {
 
 	useMiddleware(middleware: (req: NactRequest) => void) {
 		this.middleware.push(middleware);
-		this.logger.info(`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`, "MIDDLEWARE");
+		this.logger.info(
+			`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`,
+			"MIDDLEWARE"
+		);
 		return this;
 	}
 
@@ -224,6 +227,13 @@ class NactServer {
 			}
 		}
 		return request.send(response);
+	}
+
+	clearModuleConfiguration(cb: () => void): void {
+		const transferModule = createNewTransferModule();
+		this.routes = {};
+		cb();
+		transferModule._initPhase();
 	}
 
 	injectRequest(RequestData: InjectRequest) {
@@ -305,7 +315,11 @@ class NactServer {
 				contorllerDescriptorKeys.forEach((descriptorKey) => {
 					if (isUppercase(descriptorKey)) {
 						const descriptorConstructor = controller.constructor;
-						const routeParamters: RouteChild = Reflect.getMetadata(ROUTE__OPTIONS, descriptorConstructor, descriptorKey);
+						const routeParamters: RouteChild = Reflect.getMetadata(
+							ROUTE__OPTIONS,
+							descriptorConstructor,
+							descriptorKey
+						);
 						if (routeParamters) {
 							routeParamters.schema.unshift(contorllerRoutePath as string);
 
@@ -386,14 +400,13 @@ createModule({
 
 createModule({
 	controllers: [],
-	providers: [TestServiceModuleV1],
+	providers: [TypeORMModule.getRepositories([TestEntity]), TestServiceModuleV1],
 	import: [TestServiceModule3, TestService3],
 });
 
 createModule({
 	controllers: [ApiController],
 	providers: [
-		TypeORMModule.getRepositories([TestEntity]),
 		TestService,
 		TestService3,
 		createProvider({
@@ -414,7 +427,7 @@ function App() {
 }
 
 //console.clear();
-App();
+//App();
 
 export default NactServer;
 export { Controller };

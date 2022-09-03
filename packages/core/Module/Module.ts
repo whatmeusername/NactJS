@@ -14,6 +14,10 @@ import {
 	getUniqueToken,
 	mapCustomProviderArgs,
 	getConstructorParametersData,
+	PROVIDER_TOKEN,
+	CUSTOM_PROVIDER_TOKEN,
+	MODULE_TOKEN,
+	ROOT_MODULE_TOKEN,
 } from "./index";
 
 import type {
@@ -27,6 +31,17 @@ import type {
 
 const NactLogger = getNactLogger();
 
+function isProviderToken(token: string): boolean {
+	return token.startsWith(PROVIDER_TOKEN);
+}
+function isInjectArgumentsHasEnoughForFactory(provider: NactCustomProvider): boolean {
+	const argsLength = provider?.useFactory?.length ?? -1;
+	if (argsLength > 0) {
+		return (provider?.injectParameters?.length ?? 0) >= argsLength;
+	}
+	return true;
+}
+
 class NactModule {
 	protected readonly __moduleToken: string;
 	readonly __moduleSettings: NactModuleSettings | null;
@@ -38,7 +53,7 @@ class NactModule {
 	controllers: ControllerData[];
 
 	constructor(settings: NactModuleSettings) {
-		this.__moduleToken = getUniqueToken(settings.isRoot ? "root-module" : "module");
+		this.__moduleToken = getUniqueToken(settings.isRoot ? ROOT_MODULE_TOKEN : MODULE_TOKEN);
 		this.__moduleSettings = settings;
 		this.__isInited = false;
 
@@ -73,13 +88,9 @@ class NactModule {
 	}
 
 	setUniqueToken(object: any, prefix?: string) {
-		if (!this.isRegistered(object)) {
-			const token = getUniqueToken(prefix);
-			Reflect.defineMetadata(INJECTABLE_UNIQUE_TOKEN, token, object);
-			return token;
-		} else {
-			// TODO: THROW ERROR if
-		}
+		const token = getUniqueToken(prefix);
+		Reflect.defineMetadata(INJECTABLE_UNIQUE_TOKEN, token, object);
+		return token;
 	}
 
 	isRegistered(object: any) {
@@ -90,8 +101,13 @@ class NactModule {
 
 	// --- Providers ---
 
-	getProvider(providerName: string): ProviderData | undefined {
-		return this.providers.find((provider) => provider.name === providerName);
+	getProvider(providerNameOrToken: string): ProviderData | undefined {
+		const isToken =
+			providerNameOrToken?.startsWith(PROVIDER_TOKEN) || providerNameOrToken?.startsWith(CUSTOM_PROVIDER_TOKEN);
+		if (isToken) {
+			return this.providers.find((provider) => provider.uniqueToken === providerNameOrToken);
+		}
+		return this.providers.find((provider) => provider.name === providerNameOrToken);
 	}
 
 	getProviderParams(provider: ProviderData | NactCustomProvider): Array<any> {
@@ -114,7 +130,8 @@ class NactModule {
 						constructorParams.push(registeredProvider.instance);
 					} else {
 						const ProviderDepency = this.__moduleSettings?.providers?.find(
-							(p) => p.name === constructorParam.name || (isCustomProvider(p) && p.providerName === constructorParam.name)
+							(p) =>
+								p.name === constructorParam.name || (isCustomProvider(p) && p.providerName === constructorParam.name)
 						);
 						if (ProviderDepency) {
 							if (isCustomProvider(ProviderDepency)) {
@@ -175,7 +192,7 @@ class NactModule {
 	}
 
 	updateProvider(providerToken: string): ProviderData | null {
-		const providerToUpdate = this.providers.find((provider) => provider.uniqueToken === providerToken);
+		const providerToUpdate = this.getProvider(providerToken);
 		if (providerToUpdate) {
 			const initialProvider = this.__moduleSettings?.providers?.find(
 				(provider) => provider.name === providerToUpdate.name || provider.providerName === providerToUpdate.name
@@ -205,6 +222,17 @@ class NactModule {
 		const providerData: ProviderData = {} as ProviderData;
 
 		if (customProvider.willBeResolvedBy === "useFactory" && customProvider.useFactory) {
+			if (!isInjectArgumentsHasEnoughForFactory(customProvider)) {
+				const useFactoryArgsLength = customProvider?.useFactory?.length ?? 0;
+				const injArgsLen = customProvider?.injectParameters?.length ?? 0;
+				NactLogger.error(
+					`method useFactory of custom provider "${
+						customProvider.providerName
+					}" expected to get atleats ${useFactoryArgsLength} arguments, ${
+						injArgsLen > 0 ? `but got ${injArgsLen}` : "but no one was passed."
+					}`
+				);
+			}
 			if (!this.isUsingUnresolvedImports(customProvider)) {
 				const injectArguments = this.getProviderParams(customProvider);
 				providerData.instance = customProvider.useFactory(...injectArguments);
@@ -223,7 +251,7 @@ class NactModule {
 		}
 
 		providerData.name = customProvider.providerName;
-		providerData.uniqueToken = this.setUniqueToken(customProvider, "provider") as string;
+		providerData.uniqueToken = this.setUniqueToken(customProvider, PROVIDER_TOKEN) as string;
 
 		this.providers.push(providerData);
 
@@ -247,7 +275,7 @@ class NactModule {
 				const providerData: ProviderData = {} as ProviderData;
 
 				providerData.name = provider.name;
-				providerData.uniqueToken = this.setUniqueToken(provider, "provider") as string;
+				providerData.uniqueToken = this.setUniqueToken(provider, PROVIDER_TOKEN) as string;
 
 				if (!isInitialized && !canNotBeResolved) {
 					this.resolveProviderInstance(providerData, provider);
@@ -360,7 +388,7 @@ function createModule(settings: NactModuleSettings) {
 	settings.isRoot = false;
 	const newModule = new NactModule(settings);
 	getTransferModule()._append(newModule);
-	return newModule;
+	return newModule.getModuleToken();
 }
 
 function createProvider(settings: NactCustomProviderSettings): NactCustomProvider {
@@ -390,7 +418,8 @@ function createProvider(settings: NactCustomProviderSettings): NactCustomProvide
 
 	return {
 		...settings,
-		uniqueToken: getUniqueToken("module-custom-provider"),
+		//NACT_CUSTOM_PROVIDER_TOKEN
+		uniqueToken: getUniqueToken(CUSTOM_PROVIDER_TOKEN),
 		willBeResolvedBy: settings?.useFactory ? "useFactory" : settings?.useClass ? "useClass" : "useValue",
 	};
 }

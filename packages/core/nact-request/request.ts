@@ -5,7 +5,7 @@ import { mime } from "send";
 import fs from "fs";
 
 import { parse } from "path";
-import { RouteChild } from "../../../index";
+import { RouteChild } from "../../../app";
 
 import { getRequestURLInfo, getProtocol, getRequestIP, getHost, getOrigin } from "../../utils/URLUtils";
 import { getNactLogger, NactLogger } from "../nact-logger/logger";

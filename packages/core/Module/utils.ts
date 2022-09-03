@@ -1,19 +1,19 @@
-import type { NactModule } from "./index";
 import {
 	INJECTABLE_WATERMARK,
 	MODULE__WATERMARK,
 	CONTROLLER__WATERMARK,
 	PROPERTY_DEPENDENCIES,
 } from "../nact-constants/index";
-import type { ParameterData, ConstructorData, NactCustomProvider, ProviderData } from "./index";
+import type { ParameterData, ConstructorData, NactCustomProvider, ProviderData, NactModule } from "./index";
+import { CUSTOM_PROVIDER_TOKEN, ROOT_MODULE_TOKEN, MODULE_TOKEN } from "./index";
 import { getNactLogger } from "../nact-logger/index";
 
 const NactLogger = getNactLogger();
 
 function isClassInstance(object: any): boolean {
 	return (
-		object.prototype?.constructor?.toString().substring(0, 5) === "class" ||
-		object.constructor?.toString().substring(0, 5) === "class"
+		object?.prototype?.constructor?.toString().substring(0, 5) === "class" ||
+		object?.constructor?.toString().substring(0, 5) === "class"
 	);
 }
 
@@ -22,19 +22,19 @@ function isUndefined(value: any): boolean {
 }
 
 function isInitializedClass(object: any): boolean {
-	return isClassInstance(object) && typeof object === "object";
+	return object && isClassInstance(object) && typeof object === "object";
 }
 
 function isRootModule(module: NactModule): boolean {
-	return module?.getModuleToken()?.startsWith("root-module");
+	return module?.getModuleToken()?.startsWith(ROOT_MODULE_TOKEN);
 }
 
 function isModule(module: NactModule): boolean {
-	return module?.getModuleToken()?.startsWith("module");
+	return module?.getModuleToken()?.startsWith(MODULE_TOKEN);
 }
 
 function isCustomProvider(provider: any): boolean {
-	return typeof provider === "object" && provider?.uniqueToken?.startsWith("module-custom-provider");
+	return typeof provider === "object" && provider?.uniqueToken?.startsWith(CUSTOM_PROVIDER_TOKEN);
 }
 
 function isInjectable(object: any): boolean {

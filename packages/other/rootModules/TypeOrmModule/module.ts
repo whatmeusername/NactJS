@@ -1,7 +1,11 @@
 import { DataSource, Entity, Column, PrimaryGeneratedColumn, EntitySchema } from "typeorm";
 import type { DataSourceOptions } from "typeorm";
 
-import type { NactRootModuleSettings, NactCustomProvider, NactCustomProviderSettings } from "../../../core/Module/index";
+import type {
+	NactRootModuleSettings,
+	NactCustomProvider,
+	NactCustomProviderSettings,
+} from "../../../core/Module/index";
 import { createProvider, isClassInstance } from "../../../core/Module/index";
 import { Inject } from "../../../core/Decorators/Inject/index";
 
@@ -120,7 +124,9 @@ class DatabaseStorage {
 		return false;
 	}
 
-	static getDataSource(DataSource?: DataSourceToken): string | undefined | string[] | { original: string; prefix: string } {
+	static getDataSource(
+		DataSource?: DataSourceToken
+	): string | undefined | string[] | { original: string; prefix: string } {
 		const datasourceTokens = this.datasourceTokensStorage.get("DATASOURCE__TOKENS") ?? [];
 
 		if (datasourceTokens.length > 1 && datasourceTokens.length > 0) {
@@ -230,7 +236,9 @@ class TypeORMModule {
 					repository = dataSource.getTreeRepository(entity);
 				} else {
 					repository =
-						dataSource.options.type === "mongodb" ? dataSource.getMongoRepository(entity) : dataSource.getRepository(entity);
+						dataSource.options.type === "mongodb"
+							? dataSource.getMongoRepository(entity)
+							: dataSource.getRepository(entity);
 				}
 				return repository;
 			},

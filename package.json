@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "test": "jest",
-    "start": "nodemon  --quiet --ext ts,json --exec ts-node --logError ./index.ts"
+    "start": "nodemon  --quiet --ext ts,json --exec ts-node --logError ./app.ts"
   },
   "author": "",
   "license": "ISC",

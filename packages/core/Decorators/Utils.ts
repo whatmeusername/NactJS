@@ -5,7 +5,7 @@ import { NactRequest } from "../nact-request/index";
 import { getPathSchema } from "../../utils/RoutingUtils";
 import { removeSlashes } from "../../utils/Other";
 
-import type { RouteChild } from "../../../index";
+import type { RouteChild } from "../../../app";
 
 const getRouteData = (
 	path: string,

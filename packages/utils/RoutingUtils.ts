@@ -1,8 +1,8 @@
-import type { ChildRouteSchema } from "../../index";
+import type { ChildRouteSchema } from "../../app";
 
 import { ROUTE__STATUS__CODE, ROUTE__CONTENT__TYPE } from "../core/nact-constants/index";
 import type { NactRequest } from "../core/nact-request/request";
-import type { NactRouteResponse, RouteChild } from "../../index";
+import type { NactRouteResponse, RouteChild } from "../../app";
 
 const isDynamicPathSegment = (path: string): boolean => {
 	return path.startsWith(":");

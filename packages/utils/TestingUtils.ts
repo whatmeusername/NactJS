@@ -1,4 +1,4 @@
-import { NactRequest } from "../nact-request/index";
+import { NactRequest } from "../core/nact-request/index";
 
 expect.extend({
 	toEqualMessage(received, expected, custom) {

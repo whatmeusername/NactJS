@@ -20,6 +20,10 @@ import {
 	getConstructorParametersData,
 	unpackModuleArrays,
 	resolveRootCustomProviderFactory,
+	PROVIDER_TOKEN,
+	CUSTOM_PROVIDER_TOKEN,
+	MODULE_TOKEN,
+	ROOT_MODULE_TOKEN,
 } from "./index";
 
 // const logger = getNactLogger();
@@ -44,6 +48,11 @@ function createRootModule(settings: NactRootModuleSettings): NactModule {
 	return newModule;
 }
 
+function createNewTransferModule(): NactTransferModule {
+	NactTransferModuleInstance = new NactTransferModule();
+	return NactTransferModuleInstance;
+}
+
 class NactTransferModule {
 	protected readonly __modules: NactModule[];
 	protected readonly __exports: TransferModuleExportsOrImport[];
@@ -58,9 +67,14 @@ class NactTransferModule {
 		this.__exports = [];
 		this.__asyncQueryCount = 0;
 		this.__phase = "preparing";
-
 		if (modules) this._append(modules);
 	}
+
+	get length() {
+		return this.__modules.length;
+	}
+
+	// ----- Public General ----
 
 	useAsRootModule(settings: NactRootModuleSettings) {
 		const exportAllProviders = (settings: NactRootModuleSettings): NactRootModuleSettings => {
@@ -95,22 +109,26 @@ class NactTransferModule {
 		} else create(settings);
 	}
 
-	getProviderLocationByName(name: string): any {
-		let provider = this.__providersLocator.find((provider) => provider.name === name);
-		let moduleKey = null;
+	hasModule(moduleKey: string): boolean {
+		return this.__modules.find((module) => module.getModuleToken() === moduleKey) !== undefined;
+	}
+	// ---- Service ----
+
+	getProviderLocationByName(ProviderName: string | { new (): void }): any {
+		ProviderName = isClassInstance(ProviderName) ? (ProviderName as { new (): void }).name : ProviderName;
+		let provider = this.__providersLocator.find((provider) => provider.name === ProviderName);
 		if (!provider) {
 			for (let i = 0; i < this.__modules.length; i++) {
 				const module = this.__modules[i];
 				if (!module.__isInited) {
 					provider = module.__moduleSettings?.providers?.find(
-						(provider) => provider.name === name || provider.providerName === name
+						(provider) => provider.name === ProviderName || provider.providerName === ProviderName
 					);
 					if (provider) break;
 				}
-				moduleKey = module.getModuleToken();
 			}
 		}
-		return { provider: provider, moduleKey: moduleKey };
+		return provider;
 	}
 
 	getModulesControllers(instanceOnly = false): any[] {
@@ -283,8 +301,8 @@ class NactTransferModule {
 							module.import.push(importedProvider);
 						} else {
 							const unresolvedProvider = this.getProviderLocationByName(currentImportName);
-							if (unresolvedProvider.provider) {
-								const providerName = unresolvedProvider.provider.name ?? unresolvedProvider.provider.providerName;
+							if (unresolvedProvider) {
+								const providerName = unresolvedProvider.name ?? unresolvedProvider.providerName;
 
 								module.import.push({
 									name: providerName,
@@ -315,7 +333,7 @@ class NactTransferModule {
 		const initialProviders = moduleSettings?.providers ?? [];
 		const initialControllers = moduleSettings?.controllers ?? [];
 
-		const rootExports = this.__exports.filter((exp) => exp.moduleKey.startsWith("root-module") === true);
+		const rootExports = this.__exports.filter((exp) => exp.moduleKey.startsWith(ROOT_MODULE_TOKEN) === true);
 
 		const moduleNotImportedModules: string[] = [];
 		const moduleImports = moduleSettings?.import?.map((imp) => (typeof imp === "string" ? imp : imp?.name));
@@ -362,4 +380,4 @@ class NactTransferModule {
 }
 
 export type { NactRootModuleSettings };
-export { createRootModule, getTransferModule };
+export { NactTransferModule, createRootModule, getTransferModule, createNewTransferModule };

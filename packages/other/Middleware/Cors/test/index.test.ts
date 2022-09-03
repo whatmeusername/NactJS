@@ -1,4 +1,4 @@
-import NactServer, { Controller } from "../../../../../index";
+import NactServer, { Controller } from "../../../../../app";
 import NactCors from "../middleware";
 import { createModule } from "../../../../core/Module/index";
 import { NactRequest } from "../../../../core/nact-request/index";

@@ -1,6 +1,6 @@
 import { createRouteParamDecorator } from "../Utils";
 import { NactRequest } from "../../nact-request/index";
-import { RouteChild } from "../../../../index";
+import { RouteChild } from "../../../../app";
 
 const Param = createRouteParamDecorator(function (req: NactRequest) {
 	const route = req.route as RouteChild;
