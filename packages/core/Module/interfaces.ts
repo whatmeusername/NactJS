@@ -14,6 +14,8 @@ interface ProviderData {
 	name: string;
 	uniqueToken: string;
 	constructorParams: ConstructorData;
+	reference?: string;
+	isReady: boolean;
 }
 
 interface ControllerData {
@@ -46,6 +48,7 @@ interface ProviderLocation {
 	resolved: boolean;
 	moduleKey: string;
 	instance: any;
+	reference?: string;
 }
 
 interface NactCustomProviderSettings {
@@ -53,6 +56,7 @@ interface NactCustomProviderSettings {
 	useFactory?: (...args: any[]) => any;
 	useValue?: any;
 	useClass?: (new (...args: any[]) => object) | object;
+	useAlias?: any;
 	injectParameters?: ((new (...args: any[]) => object) | string)[];
 }
 

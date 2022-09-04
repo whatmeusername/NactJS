@@ -6,10 +6,11 @@ import {
 	NactTransferModule,
 	createNewTransferModule,
 } from "../../Module/index";
+import type { ProviderData } from "../../Module/index";
 // import { Inject } from "../../Decorators/Inject/index";
 import NactServer from "../../../../app";
 
-import { ServiceEmpty, AnotherEmptyService, ServiceA, ServiceB, ServiceC } from "./test.service";
+import { ServiceEmpty, AnotherEmptyService, ServiceA, ServiceB, ServiceC, ServiceAlias } from "./test.service";
 import { fail } from "assert";
 
 type ServiceInstanceOrName = { new (...args: any): void } | string;
@@ -34,7 +35,7 @@ const getValueFromTestInstance = (service: ServiceInstanceOrName[] | ServiceInst
 	let result = false;
 	for (let i = 0; i < services.length; i++) {
 		const service = services[i];
-		const provider = transferModule.getProviderLocationByName(service);
+		const provider = transferModule.getProviderFromLocationByName(service);
 		if (provider && provider?.resolved) {
 			const instance = provider?.instance;
 
@@ -47,6 +48,11 @@ const getValueFromTestInstance = (service: ServiceInstanceOrName[] | ServiceInst
 		}
 	}
 	return result;
+};
+
+const getProviderFromTransfer = (service: ServiceInstanceOrName | ServiceInstanceOrName): ProviderData => {
+	const transferModule = getTransferModule();
+	return transferModule.getProviderFromLocationByName(service);
 };
 
 describe("Nact transfer module methods testing", () => {
@@ -297,7 +303,7 @@ describe("Nact module testing (IoC / DI) | Class instances | Import / export | i
 	});
 });
 
-describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () => {
+describe("Nact testing method 'useValue' custom provider", () => {
 	test("(1) Create custom provider with useValue, that will return true", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
@@ -313,22 +319,55 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider");
 		expect(result).toBe(true);
 	});
-	test("(2) Create custom provider with useFactory, that will return true", () => {
+	test("(2) Create custom provider with useValue, that will return undefined", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [
 					createProvider({
 						providerName: "custom_provider",
-						useFactory: () => true,
+						useValue: undefined,
 					}),
 				],
 			});
 		});
 
-		const result = getValueFromTestInstance("custom_provider");
-		expect(result).toBe(true);
+		const result = getProviderFromTransfer("custom_provider")?.instance;
+		expect(result).toBeUndefined();
 	});
-	test("(3) Create custom provider with useClass, that will return initialized class instance", () => {
+	test("(3) Create custom provider with useValue, that will return null", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					createProvider({
+						providerName: "custom_provider",
+						useValue: null,
+					}),
+				],
+			});
+		});
+
+		const result = getProviderFromTransfer("custom_provider")?.instance;
+		expect(result).toBeNull();
+	});
+	test("(4) Create custom provider with useValue, that will return 0", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					createProvider({
+						providerName: "custom_provider",
+						useValue: 0,
+					}),
+				],
+			});
+		});
+
+		const result = getProviderFromTransfer("custom_provider")?.instance;
+		expect(result).toBe(0);
+	});
+});
+
+describe("Nact testing method 'useClass' custom provider", () => {
+	test("(1) Create custom provider with useClass, that will return initialized class instance", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [
@@ -343,7 +382,58 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider");
 		expect(result).toBe(true);
 	});
-	test("(3) Create custom provider with useFactory, that will use injectParameters. providers ordered. same module", () => {
+	test("(2) Checking if useClass can accept initialized classes", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					createProvider({
+						providerName: "custom_provider",
+						useClass: new ServiceEmpty(),
+					}),
+				],
+			});
+		});
+
+		const result = getValueFromTestInstance("custom_provider");
+		expect(result).toBe(true);
+	});
+	test("(3) Checking if useClass can not accept non class instances", () => {
+		try {
+			server.clearModuleConfiguration(() => {
+				createModule({
+					providers: [
+						createProvider({
+							providerName: "custom_provider",
+							//@ts-ignore Ignoring for testing purposes
+							useClass: "Hello world",
+						}),
+					],
+				});
+			});
+			fail();
+		} catch (err: any) {
+			expect(true).toBe(ErrorStringIsNactError(err.message));
+		}
+	});
+});
+
+describe("Nact testing method 'useFactory' custom provider", () => {
+	test("(1) Create custom provider with useFactory, that will return true", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					createProvider({
+						providerName: "custom_provider",
+						useFactory: () => true,
+					}),
+				],
+			});
+		});
+
+		const result = getValueFromTestInstance("custom_provider");
+		expect(result).toBe(true);
+	});
+	test("(2) Create custom provider with useFactory, that will use injectParameters. providers ordered. same module", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [
@@ -362,7 +452,7 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider");
 		expect(result).toBe(true);
 	});
-	test("(4) Create custom provider with useFactory, that will use injectParameters. providers unordered. same module", () => {
+	test("(3) Create custom provider with useFactory, that will use injectParameters. providers unordered. same module", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [
@@ -381,7 +471,7 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider");
 		expect(result).toBe(true);
 	});
-	test("(5) Create custom provider with useFactory, that will use injectParameters. other module", () => {
+	test("(4) Create custom provider with useFactory, that will use injectParameters. other module", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [ServiceEmpty],
@@ -404,7 +494,7 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider");
 		expect(result).toBe(true);
 	});
-	test("(6) Create custom provider with useFactory, that will use injectParameters. Injectable service using other injections. providers ordered. same module", () => {
+	test("(5) Create custom provider with useFactory, that will use injectParameters. Injectable service using other injections. providers ordered. same module", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [
@@ -424,7 +514,7 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider");
 		expect(result).toBe(true);
 	});
-	test("(7) Create custom provider with useFactory, that will use injectParameters. Injectable service using other injections. providers unordered. same module", () => {
+	test("(6) Create custom provider with useFactory, that will use injectParameters. Injectable service using other injections. providers unordered. same module", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [
@@ -444,7 +534,7 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider");
 		expect(result).toBe(true);
 	});
-	test("(8) Create custom provider with useFactory, that will use injectParameters. Injectable service using other injections. other module", () => {
+	test("(7) Create custom provider with useFactory, that will use injectParameters. Injectable service using other injections. other module", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [ServiceEmpty, ServiceA],
@@ -466,7 +556,7 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider");
 		expect(result).toBe(true);
 	});
-	test("(9) Create custom provider with useFactory, that will use injectParameters. Injectable service using other injections. between modules", () => {
+	test("(8) Create custom provider with useFactory, that will use injectParameters. Injectable service using other injections. between modules", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [ServiceEmpty],
@@ -494,7 +584,7 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider");
 		expect(result).toBe(true);
 	});
-	test("(10) Throw error injectParameters provided, if custom provider useFactory using arguments", () => {
+	test("(9) Throw error injectParameters provided, if custom provider useFactory using arguments", () => {
 		try {
 			server.clearModuleConfiguration(() => {
 				createModule({
@@ -515,7 +605,7 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 			expect(true).toBe(ErrorStringIsNactError(error.message ?? ""));
 		}
 	});
-	test("(11) Injecting into useFactory another custom porvider. providers ordered", () => {
+	test("(10) Injecting into useFactory another custom porvider. providers ordered", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [
@@ -540,7 +630,7 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		const result = getValueFromTestInstance("custom_provider_2");
 		expect(result).toBe(true);
 	});
-	test("(12) Injecting into useFactory another custom porvider. providers unordered", () => {
+	test("(11) Injecting into useFactory another custom porvider. providers unordered", () => {
 		server.clearModuleConfiguration(() => {
 			createModule({
 				providers: [
@@ -563,6 +653,137 @@ describe("Nact module testing (IoC / DI) | Custom Provider |  | injecting", () =
 		});
 
 		const result = getValueFromTestInstance("custom_provider_2");
+		expect(result).toBe(true);
+	});
+});
+
+describe("Nact testing method 'useAlias' custom provider", () => {
+	test("(1) custom provider useAlias. providers ordered", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					ServiceEmpty,
+					createProvider({
+						providerName: "AnotherEmptyService",
+						useAlias: ServiceEmpty,
+					}),
+				],
+			});
+		});
+
+		const provider = getProviderFromTransfer("AnotherEmptyService");
+		expect(provider?.instance).toBeInstanceOf(ServiceEmpty);
+	});
+	test("(2) custom provider useAlias. providers unordered", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					createProvider({
+						providerName: "AnotherEmptyService",
+						useAlias: ServiceEmpty,
+					}),
+					ServiceEmpty,
+				],
+			});
+		});
+
+		const provider = getProviderFromTransfer("AnotherEmptyService");
+		expect(provider?.instance).toBeInstanceOf(ServiceEmpty);
+	});
+	test("(3) providier injecting custom provider with useAlias. providers ordered", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					ServiceEmpty,
+					createProvider({
+						providerName: "AnotherEmptyService",
+						useAlias: ServiceEmpty,
+					}),
+					ServiceAlias,
+				],
+			});
+		});
+
+		const result = getValueFromTestInstance(ServiceAlias);
+		expect(result).toBe(true);
+	});
+	test("(4) providier injecting custom provider with useAlias. providers unordered", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					ServiceAlias,
+					createProvider({
+						providerName: "AnotherEmptyService",
+						useAlias: ServiceEmpty,
+					}),
+					ServiceEmpty,
+				],
+			});
+		});
+
+		const result = getValueFromTestInstance(ServiceAlias);
+		expect(result).toBe(true);
+	});
+	test("(4) providier injecting custom provider with useAlias. providers unordered. using imports / exports. module ordered", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					createProvider({
+						providerName: "AnotherEmptyService",
+						useAlias: ServiceEmpty,
+					}),
+					ServiceEmpty,
+				],
+				export: ["AnotherEmptyService"],
+			});
+			createModule({
+				import: ["AnotherEmptyService"],
+				providers: [ServiceAlias],
+			});
+		});
+
+		const result = getValueFromTestInstance(ServiceAlias);
+		expect(result).toBe(true);
+	});
+	test("(4) providier injecting custom provider with useAlias. providers unordered. using imports / exports. module unordered", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				import: ["AnotherEmptyService"],
+				providers: [ServiceAlias],
+			});
+			createModule({
+				providers: [
+					createProvider({
+						providerName: "AnotherEmptyService",
+						useAlias: ServiceEmpty,
+					}),
+					ServiceEmpty,
+				],
+				export: ["AnotherEmptyService"],
+			});
+		});
+
+		const result = getValueFromTestInstance(ServiceAlias);
+		expect(result).toBe(true);
+	});
+	test("(5) using 'useAlias' on another custom provider", () => {
+		server.clearModuleConfiguration(() => {
+			createModule({
+				providers: [
+					createProvider({
+						providerName: "ProviderThatWillBeUsed",
+						useClass: ServiceEmpty,
+					}),
+					createProvider({
+						providerName: "AnotherEmptyService",
+						useAlias: "ProviderThatWillBeUsed",
+					}),
+					ServiceAlias,
+				],
+			});
+		});
+
+		const result = getValueFromTestInstance(ServiceAlias);
 		expect(result).toBe(true);
 	});
 });

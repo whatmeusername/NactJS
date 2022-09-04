@@ -408,11 +408,14 @@ createModule({
 	controllers: [ApiController],
 	providers: [
 		TestService,
-		TestService3,
 		createProvider({
 			providerName: "test",
-			useValue: "Hello from inject",
+			useFactory: (arg: any) => {
+				return "test";
+			},
+			injectParameters: [],
 		}),
+		TestService3,
 	],
 	import: [TestServiceModule2],
 	export: [TestService3, "test"],
@@ -427,7 +430,7 @@ function App() {
 }
 
 //console.clear();
-//App();
+App();
 
 export default NactServer;
 export { Controller };

@@ -200,7 +200,7 @@ class NactTransferModule {
 					if (providerModule) {
 						this.__resolveModuleImports(providerModule);
 						const response = providerModule.__updateProvider(provider.key);
-						if (response) {
+						if (response && response.isReady) {
 							provider.resolved = true;
 							provider.instance = response.instance;
 						}

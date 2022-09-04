@@ -1,4 +1,5 @@
 import { Injectable, Inject } from "../../Decorators/Inject/index";
+import { isInitializedClass } from "../../Module/index";
 
 @Injectable()
 class ServiceEmpty {
@@ -54,4 +55,13 @@ class ServiceINJ {
 	}
 }
 
-export { AnotherEmptyService, ServiceEmpty, ServiceA, ServiceB, ServiceC, ServiceINJ };
+@Injectable()
+class ServiceAlias {
+	constructor(@Inject("AnotherEmptyService") private value: boolean) {}
+
+	getValue(): boolean {
+		return isInitializedClass(this.value);
+	}
+}
+
+export { AnotherEmptyService, ServiceEmpty, ServiceA, ServiceB, ServiceC, ServiceINJ, ServiceAlias };

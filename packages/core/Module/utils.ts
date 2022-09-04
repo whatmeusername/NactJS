@@ -100,16 +100,18 @@ function getConstructorParametersData(provider: any, validateType?: boolean): Co
 	if (types) {
 		for (let i = 0; i < types.length; i++) {
 			const paramType = types[i];
-			if (paramType === undefined && !validateType) {
-				NactLogger.error(
-					`Cannot resolve constructor parameter of class "${provider.name}" with index ${i}, because of "${paramType}" value. Maybe is circular dependency, that not cant be handled.`
-				);
-			} else if (!isInjectedProperty(i) && !isClassInstance(paramType) && !validateType) {
-				NactLogger.warning(
-					`Parameter of class constructor "${provider.name}" with type "| ${paramType} |" and index ${i} will not be injected due is not class instance.`
-				);
-			} else if (isClassInstance(paramType)) {
-				res.params.push({ name: paramType.name, index: i, type: "class" });
+			if (!isInjectedProperty(i)) {
+				if (paramType === undefined && !validateType) {
+					NactLogger.error(
+						`Cannot resolve constructor parameter of class "${provider.name}" with index ${i}, because of "${paramType}" value. Maybe is circular dependency, that not cant be handled.`
+					);
+				} else if (!isClassInstance(paramType) && !validateType) {
+					NactLogger.warning(
+						`Parameter of class constructor "${provider.name}" with type "| ${paramType} |" and index ${i} will not be injected due is not class instance.`
+					);
+				} else if (isClassInstance(paramType)) {
+					res.params.push({ name: paramType.name, index: i, type: "class" });
+				}
 			}
 			res.count += 1;
 		}
