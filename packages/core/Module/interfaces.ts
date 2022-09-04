@@ -1,7 +1,10 @@
+type classInstance = new (...args: any[]) => object;
+
 interface ParameterData {
 	name: string;
 	index: number;
 	type: string;
+	optional?: boolean;
 }
 
 interface ConstructorData {
@@ -51,13 +54,14 @@ interface ProviderLocation {
 	reference?: string;
 }
 
+type optionalArgument = { provide: classInstance | string; optional?: boolean };
 interface NactCustomProviderSettings {
 	providerName: string;
 	useFactory?: (...args: any[]) => any;
 	useValue?: any;
 	useClass?: (new (...args: any[]) => object) | object;
 	useAlias?: any;
-	injectParameters?: ((new (...args: any[]) => object) | string)[];
+	injectArguments?: (classInstance | string | optionalArgument)[];
 }
 
 interface NactCustomProvider extends NactCustomProviderSettings {

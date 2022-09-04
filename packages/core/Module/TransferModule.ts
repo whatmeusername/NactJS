@@ -362,9 +362,9 @@ class NactTransferModule {
 			if (isCustomProvider(initialProviders[i])) {
 				const customProvider: NactCustomProvider = initialProviders[i];
 				moduleNotImportedModules.push(customProvider.providerName);
-				if (customProvider?.injectParameters) {
-					const injectParameters = mapCustomProviderArgs(customProvider.injectParameters);
-					providersParameters = [...providersParameters, ...injectParameters];
+				if (customProvider?.injectArguments) {
+					const injectArguments = mapCustomProviderArgs(customProvider.injectArguments);
+					providersParameters = [...providersParameters, ...injectArguments];
 				}
 			} else if (isClassInstance(initialProviders[i])) {
 				const provider: ProviderData = initialProviders[i];

@@ -242,7 +242,7 @@ class TypeORMModule {
 				}
 				return repository;
 			},
-			injectParameters: [dataSourceToken],
+			injectArguments: [dataSourceToken],
 		});
 	}
 

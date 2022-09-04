@@ -413,7 +413,7 @@ createModule({
 			useFactory: (arg: any) => {
 				return "test";
 			},
-			injectParameters: [],
+			injectArguments: [{ provide: "TestService32", optional: true }],
 		}),
 		TestService3,
 	],
@@ -430,7 +430,7 @@ function App() {
 }
 
 //console.clear();
-App();
+//App();
 
 export default NactServer;
 export { Controller };

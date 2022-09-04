@@ -27,6 +27,7 @@ import type {
 	NactModuleSettings,
 	NactCustomProviderSettings,
 	NactCustomProvider,
+	ParameterData,
 } from "./index";
 
 const NactLogger = getNactLogger();
@@ -34,7 +35,7 @@ const NactLogger = getNactLogger();
 function isInjectArgumentsHasEnoughForFactory(provider: NactCustomProvider): boolean {
 	const argsLength = provider?.useFactory?.length ?? -1;
 	if (argsLength > 0) {
-		return (provider?.injectParameters?.length ?? 0) >= argsLength;
+		return (provider?.injectArguments?.length ?? 0) >= argsLength;
 	}
 	return true;
 }
@@ -126,7 +127,7 @@ class NactModule {
 
 		const isCustom = isCustomProvider(provider);
 		const params = isCustom
-			? mapCustomProviderArgs((provider as NactCustomProvider)?.injectParameters ?? [])
+			? mapCustomProviderArgs((provider as NactCustomProvider)?.injectArguments ?? [])
 			: (provider as ProviderData).constructorParams.params;
 
 		const paramsCount = isCustom ? params.length : (provider as ProviderData).constructorParams.count;
@@ -141,7 +142,9 @@ class NactModule {
 						constructorParams.push(registeredProvider.instance);
 					} else if (registeredProvider && !registeredProvider.isReady) {
 						return null;
-					} else {
+					}
+					//
+					else {
 						const ProviderDepency = this.getProviderFromSettings(constructorParam.name);
 						if (ProviderDepency) {
 							let provider: ProviderData | undefined;
@@ -161,9 +164,13 @@ class NactModule {
 								if (!ImportedDepency?.resolved) return null;
 								constructorParams.push(ImportedDepency.instance);
 							} else if (ImportedDepency === undefined) {
-								NactLogger.error(
-									`Nact is missing depending provider "${constructorParam.name} (index: ${constructorParam.index})" "for provider "${providerName}". Its must be passed as provider or must imported from other module.`
-								);
+								if (constructorParam.optional) {
+									constructorParams.push(undefined);
+								} else {
+									NactLogger.error(
+										`Nact is missing depending provider "${constructorParam.name} (index: ${constructorParam.index})" for provider "${providerName}". Its must be passed as provider or must imported from other module.`
+									);
+								}
 							}
 						}
 					}
@@ -221,11 +228,11 @@ class NactModule {
 		if (willUse === "useFactory" && customProvider.useFactory) {
 			if (!isInjectArgumentsHasEnoughForFactory(customProvider)) {
 				const useFactoryArgsLength = customProvider?.useFactory?.length ?? 0;
-				const injArgsLen = customProvider?.injectParameters?.length ?? 0;
+				const injArgsLen = customProvider?.injectArguments?.length ?? 0;
 				NactLogger.error(
 					`method useFactory of custom provider "${
 						customProvider.providerName
-					}" expected to get atleats ${useFactoryArgsLength} arguments, ${
+					}" expected to get atleast ${useFactoryArgsLength} arguments, ${
 						injArgsLen > 0 ? `but got ${injArgsLen}` : "but no one was passed."
 					}`
 				);
@@ -400,7 +407,7 @@ class NactModule {
 		const paramsNames: string[] = [];
 
 		const params = isCustomProvider(provider)
-			? mapCustomProviderArgs(provider.injectParameters)
+			? mapCustomProviderArgs(provider.injectArguments)
 			: getConstructorParametersData(provider, true).params;
 
 		params.forEach((type) => {

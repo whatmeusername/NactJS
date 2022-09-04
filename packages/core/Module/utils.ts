@@ -79,6 +79,17 @@ function mapCustomProviderArgs(params: any[]): ParameterData[] {
 				res.push({ name: param.name, index: i, type: "class" });
 			} else if (typeof param === "string") {
 				res.push({ name: param, index: i, type: "inject" });
+			} else if (typeof param === "object") {
+				const provide = param.provide;
+				if (provide) {
+					// prettier-ignore
+					const paramName = isClassInstance(provide) ? provide.name : (typeof provide === "string" ? provide : undefined);
+					if (paramName) {
+						const paramData: ParameterData = { name: paramName, index: i, type: "inject" };
+						if (param?.optional !== undefined) paramData.optional = param.optional;
+						res.push(paramData);
+					}
+				}
 			}
 		}
 	}
@@ -142,8 +153,8 @@ function unpackModuleArrays(module: NactModule): void {
 
 function resolveRootCustomProviderFactory(provider: NactCustomProvider): any {
 	if (provider.useFactory) {
-		if (provider.injectParameters) {
-			NactLogger.error("Nact root modules cant use imports or injectParameters for custom providers");
+		if (provider.injectArguments) {
+			NactLogger.error("Nact root modules cant use imports or injectArguments for custom providers");
 		}
 		const factoryValue = provider.useFactory();
 		provider.willUse = "useValue";
