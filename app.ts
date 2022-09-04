@@ -430,7 +430,7 @@ function App() {
 }
 
 //console.clear();
-//App();
+App();
 
 export default NactServer;
 export { Controller };

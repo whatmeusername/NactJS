@@ -47,6 +47,22 @@ function getNameFromUseAlias(provider: NactCustomProvider): string | undefined {
 	}
 }
 
+const setReadyForProivider = (provider: ProviderData, ready: boolean): ProviderData => {
+	if (ready && !provider.isReady) {
+		provider.isReady = true;
+		if (isInitializedClass(provider.instance)) {
+			const onProviderReadyDescriptor = Object.getOwnPropertyDescriptor(
+				provider.instance.constructor.prototype,
+				"onProviderReady"
+			);
+			if (onProviderReadyDescriptor && typeof onProviderReadyDescriptor.value === "function") {
+				onProviderReadyDescriptor.value();
+			}
+		}
+	}
+	return provider;
+};
+
 class NactModule {
 	protected readonly __moduleToken: string;
 	readonly __moduleSettings: NactModuleSettings | null;
@@ -192,16 +208,16 @@ class NactModule {
 						const injectArguments = this.__getProviderParams(initialProvider);
 						if (injectArguments) {
 							const providerValue = initialProvider.useFactory(...injectArguments);
-							providerToUpdate.isReady = true;
 							providerToUpdate.instance = providerValue;
+							setReadyForProivider(providerToUpdate, true);
 						}
 						return providerToUpdate;
 					} else if (initialProvider.willUse === "useAlias") {
 						const referenceName = getNameFromUseAlias(initialProvider) as string;
 						const referenceProvider = this.getProvider(referenceName);
 						if (referenceProvider && referenceProvider?.instance) {
-							providerToUpdate.isReady = true;
 							providerToUpdate.instance = referenceProvider?.instance;
+							setReadyForProivider(providerToUpdate, true);
 							return providerToUpdate;
 						}
 					}
@@ -279,7 +295,7 @@ class NactModule {
 			providerData.instance = providerValue;
 		}
 
-		providerData.isReady = isResolved;
+		setReadyForProivider(providerData, isResolved);
 		providerData.name = customProvider.providerName;
 		providerData.uniqueToken = this.setUniqueToken(customProvider, PROVIDER_TOKEN) as string;
 
@@ -303,8 +319,8 @@ class NactModule {
 			constructorParams = this.__getProviderParams(provider);
 		}
 		if (constructorParams) {
-			provider.isReady = true;
 			provider.instance = new instance(...constructorParams);
+			setReadyForProivider(provider, true);
 		}
 	}
 
@@ -326,7 +342,7 @@ class NactModule {
 					providerData.instance = provider;
 				}
 
-				providerData.isReady = isResolved;
+				setReadyForProivider(providerData, isResolved);
 				this.providers.push(providerData);
 
 				getTransferModule().__providersLocator.push({
