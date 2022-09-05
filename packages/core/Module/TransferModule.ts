@@ -23,6 +23,8 @@ import {
 	ROOT_MODULE_TOKEN,
 } from "./index";
 
+import * as utils from "util";
+
 // const logger = getNactLogger();
 let NactTransferModuleInstance: NactTransferModule;
 const NactLogger = getNactLogger();
@@ -133,8 +135,8 @@ class NactTransferModule {
 		return this.__modules.find((module) => module.getModuleToken() === moduleKey) !== undefined;
 	}
 
-	initialize(): void {
-		const begin = () => {
+	async initialize(): Promise<void> {
+		const BeginInitalization = () => {
 			this.__phase = "resolving";
 			for (let i = 0; i < this.__modules.length; i++) {
 				const module = this.__modules[i];
@@ -163,19 +165,25 @@ class NactTransferModule {
 
 		let asyncTimeLimit = 1000;
 		const timeout = 75;
-		const waitForAllAsyncAndBegin = () => {
-			if (this.__asyncQueryCount !== 0 && asyncTimeLimit > 0) {
-				setTimeout(() => {
-					asyncTimeLimit -= timeout;
-					waitForAllAsyncAndBegin();
-				}, timeout);
-			} else if (this.__asyncQueryCount === 0) {
-				begin();
-			} else if (asyncTimeLimit === 0) {
-				begin();
-			}
+
+		const waitForAllAsyncAndBegin = async () => {
+			return new Promise((resolve, reject) => {
+				if (this.__asyncQueryCount !== 0 && asyncTimeLimit > 0) {
+					setTimeout(async () => {
+						asyncTimeLimit -= timeout;
+						resolve(waitForAllAsyncAndBegin());
+					}, timeout);
+				} else if (this.__asyncQueryCount === 0) {
+					resolve(BeginInitalization());
+				} else if (asyncTimeLimit === 0) {
+					resolve(BeginInitalization());
+				} else {
+					reject();
+				}
+			});
 		};
-		waitForAllAsyncAndBegin();
+
+		await waitForAllAsyncAndBegin();
 	}
 	// ---- Providers ----
 

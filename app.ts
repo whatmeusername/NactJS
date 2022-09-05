@@ -129,37 +129,54 @@ function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequ
 class NactServer {
 	server: http.Server;
 	serverRunningURL: string | null;
+	serverPort: number | null;
 	routes: NactRoutes;
 	IPv4: string | null;
 	logger: NactLogger;
 	middleware: any; //NactMiddleware;
+	running: boolean;
 	constructor(serverSetting?: serverSettings) {
 		this.server = http.createServer(this.__RequestHandler);
 		this.serverRunningURL = null;
+		this.serverPort = null;
 		this.routes = {};
 		this.logger = createSharedNactLogger({ isEnable: serverSetting?.loggerEnabled ?? true });
 		this.IPv4 = null;
 		this.middleware = [];
+		this.running = false;
 
-		getTransferModule().initialize();
+		this.__initialize();
+	}
+
+	protected async __initialize() {
+		await getTransferModule().initialize();
 		this.registerController(getTransferModule().getModulesControllers(true));
 		this.__getLocalMachineIP();
 
-		this.logger.log("NactServer is successfully configured");
+		this.__messageOnInitilizationEnd();
 	}
 
 	get(): http.Server {
 		return this.server;
 	}
-
-	listen(port: number) {
-		this.server.listen(port, () => {
+	protected __messageOnInitilizationEnd() {
+		if (this.running) {
 			const protocol = "http://";
 			const ipv4 = this.IPv4 ?? "localhost";
-			const serverURL = protocol + ipv4 + ":" + port + "/";
+			const serverURL = protocol + ipv4 + ":" + this.serverPort + "/";
 			this.serverRunningURL = serverURL;
+
 			this.logger.log(`NactServer is now running on ${serverURL}`);
-		});
+			this.logger.log("NactServer is successfully configured");
+		}
+	}
+	listen(port: number) {
+		if (!this.running) {
+			this.server.listen(port, () => {
+				this.running = true;
+				this.serverPort = port;
+			});
+		}
 	}
 
 	useMiddleware(middleware: (req: NactRequest) => void) {
@@ -315,36 +332,50 @@ class NactServer {
 				contorllerDescriptorKeys.forEach((descriptorKey) => {
 					if (isUppercase(descriptorKey)) {
 						const descriptorConstructor = controller.constructor;
-						const routeParamters: RouteChild = Reflect.getMetadata(
+						const routesParamters: RouteChild[] = Reflect.getMetadata(
 							ROUTE__OPTIONS,
 							descriptorConstructor,
 							descriptorKey
 						);
-						if (routeParamters) {
-							routeParamters.schema.unshift(contorllerRoutePath as string);
+						const routesParamtersLength = routesParamters.length;
 
-							const absolutePath = contorllerRoutePath + "/" + routeParamters.path;
-							const isExists = findRouteByParams(CurrentRoute, routeParamters.schema) ? true : false;
+						for (let i = 0; i < routesParamtersLength; i++) {
+							const routeParamters = routesParamters[i];
+							if (routeParamters) {
+								routeParamters.schema.unshift(contorllerRoutePath as string);
 
-							if (isExists) {
+								const absolutePath = contorllerRoutePath + "/" + routeParamters.path;
+								const isExists = findRouteByParams(CurrentRoute, routeParamters.schema) ? true : false;
+
+								if (isExists) {
+									if (routeParamters.absolute) {
+										this.logger.error(
+											`Route with path "${routeParamters.path}" already exists in controller "${controllerConstructor.name}"`
+										);
+									} else {
+										this.logger.error(
+											`"${controller.name}" already have route pattern that looking like "${routeParamters.path}"`
+										);
+									}
+								}
+
+								CurrentRoute.child[absolutePath] = { ...routeParamters, fullPath: absolutePath };
 								if (routeParamters.absolute) {
-									this.logger.error(
-										`Route with path "${routeParamters.path}" already exists in controller "${controller.name}"`
-									);
-								} else {
-									this.logger.error(
-										`"${controller.name}" already have route pattern that looking like "${routeParamters.path}"`
-									);
+									CurrentRoute.absolute.push(absolutePath);
 								}
 							}
-
-							CurrentRoute.child[absolutePath] = { ...routeParamters, fullPath: absolutePath };
-							if (routeParamters.absolute) {
-								CurrentRoute.absolute.push(absolutePath);
-							}
-
-							registeredRoutes.push(descriptorKey);
 						}
+
+						let message = descriptorKey;
+						if (routesParamtersLength > 1) {
+							const pathsNames = routesParamters.reduce((prev, next, i) => {
+								prev += `${next.path}${i !== routesParamtersLength - 1 ? ", " : ""}`;
+								return prev;
+							}, "");
+							message = `${descriptorKey} (path: ${pathsNames})`;
+						}
+
+						registeredRoutes.push(message);
 					}
 				});
 				this.logger.log(
@@ -363,7 +394,7 @@ class NactServer {
 class ApiController {
 	constructor(private SomeTrashService: TestService3) {}
 
-	@Get("delete")
+	@Get("delete", "hello")
 	Delete() {
 		return { message: "bye" };
 	}

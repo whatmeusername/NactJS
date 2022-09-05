@@ -34,15 +34,38 @@ const getRouteData = (
 	};
 };
 
-const setMethodForRoute = (descriptor: TypedPropertyDescriptor<any>, method: string, path: string): void | null => {
+const setMethodForRoute = (
+	descriptor: TypedPropertyDescriptor<any>,
+	method: string,
+	paths: string | string[]
+): void | null => {
 	const routeMethod = Reflect.getMetadata(ROUTE__METHOD, descriptor);
 	const pathMethod = Reflect.getMetadata(ROUTE__PATH, descriptor);
+	let isPathsSame = false;
+	if (Array.isArray(pathMethod) && Array.isArray(paths)) {
+		if (pathMethod.length === paths.length) {
+			isPathsSame = true;
+			for (let i = 0; i < paths.length; i++) {
+				if (pathMethod[i] !== paths[i]) {
+					isPathsSame = false;
+					break;
+				}
+			}
+		}
+	} else {
+		isPathsSame = pathMethod !== paths;
+	}
+
 	if (!routeMethod && !pathMethod) {
 		Reflect.defineMetadata(ROUTE__METHOD, "GET", descriptor);
-		Reflect.defineMetadata(ROUTE__PATH, path, descriptor);
-	} else if (routeMethod !== method || pathMethod !== path) {
+		Reflect.defineMetadata(ROUTE__PATH, paths, descriptor);
+	} else if (routeMethod !== method || isPathsSame) {
 		const logger = getNactLogger();
-		logger.error(`Routes can have only one path, but route with path "${pathMethod}" got another path "${path}"`);
+		logger.error(
+			`Routes can have only one path, but route with path "${pathMethod}" got another path "${
+				Array.isArray(paths) ? paths.join(", ") : paths
+			}"`
+		);
 	}
 };
 

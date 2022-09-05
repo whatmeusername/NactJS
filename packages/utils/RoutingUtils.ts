@@ -26,7 +26,7 @@ const getPathSchema = (string: string): ChildRouteSchema => {
 	return res;
 };
 
-function getRouteParameters(route: RouteChild, params: any[], req: NactRequest): any | null {
+function getRouteParameters(params: any[], req: NactRequest): any | null {
 	const result = [];
 	for (let i = 0; i < params.length; i++) {
 		const param = params[i];
