@@ -65,7 +65,8 @@ export interface NactRoute {
 	self: { new (): any };
 }
 
-export type ChildRouteSchema = Array<string | { name: string }>;
+export type ChildRouteSchemaSegment = string | { name: string; optional?: boolean };
+export type ChildRouteSchema = Array<ChildRouteSchemaSegment>;
 
 export interface RouteChild {
 	path: string;
@@ -93,27 +94,49 @@ const getControllerPath = (instance: any): string | null => {
 
 const findRouteByParams = (Router: NactRoute, params: ChildRouteSchema): RouteChild | null => {
 	const routeChilds = Object.values(Router.child);
+	const optionalRoutes = [];
+	const absolutePath = params.join("/");
+
+	for (let i = 0; i < Router.absolute.length; i++) {
+		const RouterAbsolutePath = Router.absolute[i];
+		if (absolutePath === RouterAbsolutePath) {
+			return Router.child[absolutePath];
+		}
+	}
+
 	for (let i = 0; i < routeChilds.length; i++) {
 		const route = routeChilds[i];
-		const schema = route.schema;
-		const mathcing = diffRouteSchemas(schema, params);
-		if (mathcing) return route;
+		if (!route.absolute) {
+			const schema = route.schema;
+			const mathcing = diffRouteSchemas(schema, params);
+			if (mathcing === "optional") {
+				optionalRoutes.push(route);
+			} else if (mathcing === "pass") return route;
+		}
+	}
+	if (optionalRoutes.length > 0) {
+		if (optionalRoutes.length === 1) {
+			return optionalRoutes[0];
+		} else {
+			// TODO: VALIDATOR FOR OPTIONAL
+		}
 	}
 	return null;
 };
 
-const diffRouteSchemas = (s1: ChildRouteSchema, s2: ChildRouteSchema): boolean => {
-	if (s1.length === s2.length) {
-		for (let i = 0; i < s1.length; i++) {
-			const dseg = s1[i];
-			const pathseg = s2[i];
-			if (typeof dseg !== "object" && dseg !== pathseg) {
-				return false;
-			}
+const diffRouteSchemas = (s1: ChildRouteSchema, s2: ChildRouteSchema): "pass" | "optional" | "fail" => {
+	let isPassed: "pass" | "optional" | "fail" = "pass";
+	let isOptional = false;
+	for (let i = 0; i < s1.length; i++) {
+		const dseg = s1[i];
+		const pathseg = s2[i];
+		if (typeof dseg === "object" && dseg?.optional) {
+			isOptional = true;
+		} else if (typeof dseg !== "object" && dseg !== pathseg) {
+			isPassed = "fail";
 		}
-		return true;
 	}
-	return false;
+	return isOptional && isPassed === "pass" ? "optional" : isPassed;
 };
 
 function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequest: NactRequest): boolean {
@@ -404,7 +427,7 @@ class ApiController {
 		return "bye";
 	}
 
-	@Get("/:yes/hello/:id")
+	@Get("/:yes/hello/:id?")
 	@HttpStatus(HTTPStatusCodes.OK)
 	@ContentType(HTTPContentType.text)
 	//eslint-disable-next-line

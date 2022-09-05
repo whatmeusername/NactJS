@@ -1,4 +1,4 @@
-import type { ChildRouteSchema } from "../../app";
+import type { ChildRouteSchema, ChildRouteSchemaSegment } from "../../app";
 
 import { ROUTE__STATUS__CODE, ROUTE__CONTENT__TYPE } from "../core/nact-constants/index";
 import type { NactRequest } from "../core/nact-request/request";
@@ -8,8 +8,14 @@ const isDynamicPathSegment = (path: string): boolean => {
 	return path.startsWith(":");
 };
 
+const isOptionalPathSegment = (path: string): boolean => {
+	return path.endsWith("?");
+};
+
 const parseNameFromDynamic = (path: string): string => {
-	return path.slice(1);
+	let res = isDynamicPathSegment(path) ? path.slice(1) : path;
+	res = isOptionalPathSegment(res) ? res.slice(0, res.length - 1) : res;
+	return res;
 };
 
 const getPathSchema = (string: string): ChildRouteSchema => {
@@ -20,8 +26,13 @@ const getPathSchema = (string: string): ChildRouteSchema => {
 	const res: ChildRouteSchema = [];
 	const spliited = string.split("/");
 	spliited.forEach((seg) => {
-		if (isDynamicPathSegment(seg)) res.push({ name: parseNameFromDynamic(seg) });
-		else res.push(seg);
+		if (isDynamicPathSegment(seg)) {
+			const data: ChildRouteSchemaSegment = { name: parseNameFromDynamic(seg) };
+			if (isOptionalPathSegment(seg)) {
+				data.optional = true;
+			}
+			res.push(data);
+		} else res.push(seg);
 	});
 	return res;
 };
