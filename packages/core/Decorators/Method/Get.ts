@@ -5,7 +5,7 @@ import { HandleRouteResponse, getRouteParameters } from "../../../utils/RoutingU
 import type { NactRequest } from "../../nact-request/index";
 import { RouteChild } from "../../../../app";
 
-function Get(...paths: string[]): any {
+function Get(...paths: (string | RegExp)[]): any {
 	return function (
 		target: () => any,
 		propertyKey: string,
@@ -15,7 +15,7 @@ function Get(...paths: string[]): any {
 		const routesData: RouteChild[] = [];
 		setMethodForRoute(descriptor, "GET", paths);
 
-		paths.forEach((path) => routesData.push(getRouteData(path, target, propertyKey, descriptor)));
+		paths.forEach((path) => routesData.push(getRouteData(path, propertyKey)));
 		Reflect.defineMetadata(ROUTE__OPTIONS, routesData, target.constructor, propertyKey);
 
 		descriptor.value = function (request: NactRequest) {

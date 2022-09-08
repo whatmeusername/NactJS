@@ -6,6 +6,7 @@ import url from "url";
 import NactCors from "./packages/other/Middleware/Cors/middleware";
 
 import { isUppercase } from "./packages/utils/Other";
+import { findRouteByParams } from "./packages/utils/RoutingUtils";
 import "reflect-metadata";
 
 import { createSharedNactLogger, NactLogger } from "./packages/core/nact-logger/index";
@@ -41,10 +42,6 @@ getTransferModule().useRootModule(
 		database: "test_backend",
 		synchronize: true,
 		autoLoadEntities: true,
-		//migrationsRun: false,
-		//entities: ["dist/**/*.entity{.ts,.js}"],
-		//migrations: ["dist/**/migrations/**/*{.ts,.js}"],
-		//logging: true,)
 	}) as any
 );
 
@@ -65,11 +62,16 @@ export interface NactRoute {
 	self: { new (): any };
 }
 
-export type ChildRouteSchemaSegment = string | { name: string; optional?: boolean };
+export interface ChildRouteSchemaSegment {
+	name: string | null;
+	optional?: boolean;
+	regexp?: RegExp | null;
+	parameter?: boolean;
+}
 export type ChildRouteSchema = Array<ChildRouteSchemaSegment>;
 
 export interface RouteChild {
-	path: string;
+	path: string | null;
 	fullPath?: string;
 	name: string;
 	method: "GET" | "POST";
@@ -90,53 +92,6 @@ export interface NactRouteResponse {
 
 const getControllerPath = (instance: any): string | null => {
 	return Reflect.getOwnMetadata(CONTROLLER_ROUTER__NAME, instance) ?? null;
-};
-
-const findRouteByParams = (Router: NactRoute, params: ChildRouteSchema): RouteChild | null => {
-	const routeChilds = Object.values(Router.child);
-	const optionalRoutes = [];
-	const absolutePath = params.join("/");
-
-	for (let i = 0; i < Router.absolute.length; i++) {
-		const RouterAbsolutePath = Router.absolute[i];
-		if (absolutePath === RouterAbsolutePath) {
-			return Router.child[absolutePath];
-		}
-	}
-
-	for (let i = 0; i < routeChilds.length; i++) {
-		const route = routeChilds[i];
-		if (!route.absolute) {
-			const schema = route.schema;
-			const mathcing = diffRouteSchemas(schema, params);
-			if (mathcing === "optional") {
-				optionalRoutes.push(route);
-			} else if (mathcing === "pass") return route;
-		}
-	}
-	if (optionalRoutes.length > 0) {
-		if (optionalRoutes.length === 1) {
-			return optionalRoutes[0];
-		} else {
-			// TODO: VALIDATOR FOR OPTIONAL
-		}
-	}
-	return null;
-};
-
-const diffRouteSchemas = (s1: ChildRouteSchema, s2: ChildRouteSchema): "pass" | "optional" | "fail" => {
-	let isPassed: "pass" | "optional" | "fail" = "pass";
-	let isOptional = false;
-	for (let i = 0; i < s1.length; i++) {
-		const dseg = s1[i];
-		const pathseg = s2[i];
-		if (typeof dseg === "object" && dseg?.optional) {
-			isOptional = true;
-		} else if (typeof dseg !== "object" && dseg !== pathseg) {
-			isPassed = "fail";
-		}
-	}
-	return isOptional && isPassed === "pass" ? "optional" : isPassed;
 };
 
 function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequest: NactRequest): boolean {
@@ -228,10 +183,10 @@ class NactServer {
 
 	protected __RequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
 		const request = new NactRequest(req, res);
-		this.executeRequest(request);
+		this.__executeRequest(request);
 	};
 
-	__resolverRouteMethod(req: NactRequest): ((...args: any[]) => any[]) | undefined {
+	protected __resolverRouteMethod(req: NactRequest): ((...args: any[]) => any[]) | undefined {
 		const params = req.urldata.params;
 		const firstParam = params[0];
 		const Router = this.routes[firstParam];
@@ -253,12 +208,14 @@ class NactServer {
 				req.__route = route;
 				//@ts-ignore
 				routeMethod = Router.self[route.name];
+			} else {
+				req.status(404);
 			}
 		}
 		return routeMethod;
 	}
 
-	executeRequest(request: NactRequest): any {
+	protected __executeRequest(request: NactRequest): any {
 		let response = undefined;
 		if (runMiddlewares(this.middleware, request)) {
 			const routeMethod = this.__resolverRouteMethod(request);
@@ -337,7 +294,7 @@ class NactServer {
 		const request = getHTTPRequest();
 		const response = new http.ServerResponse(request);
 		const nactRequest = new NactRequest(request, response);
-		return new NactRequest(request, this.executeRequest(nactRequest));
+		return new NactRequest(request, this.__executeRequest(nactRequest));
 	}
 
 	registerController(controllerClass: { new (): any }[]) {
@@ -365,22 +322,9 @@ class NactServer {
 						for (let i = 0; i < routesParamtersLength; i++) {
 							const routeParamters = routesParamters[i];
 							if (routeParamters) {
-								routeParamters.schema.unshift(contorllerRoutePath as string);
+								routeParamters.schema.unshift({ name: contorllerRoutePath as string });
 
 								const absolutePath = contorllerRoutePath + "/" + routeParamters.path;
-								const isExists = findRouteByParams(CurrentRoute, routeParamters.schema) ? true : false;
-
-								if (isExists) {
-									if (routeParamters.absolute) {
-										this.logger.error(
-											`Route with path "${routeParamters.path}" already exists in controller "${controllerConstructor.name}"`
-										);
-									} else {
-										this.logger.error(
-											`"${controller.name}" already have route pattern that looking like "${routeParamters.path}"`
-										);
-									}
-								}
 
 								CurrentRoute.child[absolutePath] = { ...routeParamters, fullPath: absolutePath };
 								if (routeParamters.absolute) {
@@ -409,6 +353,7 @@ class NactServer {
 					} routes`
 				);
 			}
+			console.log(this.routes);
 		});
 	}
 }
@@ -417,8 +362,9 @@ class NactServer {
 class ApiController {
 	constructor(private SomeTrashService: TestService3) {}
 
-	@Get("delete", "hello")
-	Delete() {
+	@Get("delete?", ":hello(^hi2$)")
+	Delete(@Param { hello }: any) {
+		console.log(hello);
 		return { message: "bye" };
 	}
 

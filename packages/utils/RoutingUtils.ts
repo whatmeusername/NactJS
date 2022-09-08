@@ -1,38 +1,179 @@
-import type { ChildRouteSchema, ChildRouteSchemaSegment } from "../../app";
+import type { ChildRouteSchema, ChildRouteSchemaSegment, NactRoute, RouteChild } from "../../app";
 
 import { ROUTE__STATUS__CODE, ROUTE__CONTENT__TYPE } from "../core/nact-constants/index";
 import type { NactRequest } from "../core/nact-request/request";
-import type { NactRouteResponse, RouteChild } from "../../app";
+import type { NactRouteResponse } from "../../app";
+import { getNactLogger } from "../core/nact-logger";
 
-const isDynamicPathSegment = (path: string): boolean => {
-	return path.startsWith(":");
+const logger = getNactLogger();
+
+const findRouteByParams = (Router: NactRoute, params: ChildRouteSchema | string[]): RouteChild | null => {
+	const routeChilds = Object.values(Router.child);
+	const optionalRoutes = [];
+	const absolutePath = params.join("/");
+
+	for (let i = 0; i < Router.absolute.length; i++) {
+		const RouterAbsolutePath = Router.absolute[i];
+		if (absolutePath === RouterAbsolutePath) {
+			return Router.child[absolutePath];
+		}
+	}
+
+	for (let i = 0; i < routeChilds.length; i++) {
+		const route = routeChilds[i];
+		const mathcing = diffRouteSchemas(route, params);
+		if (mathcing === "optional") {
+			optionalRoutes.push(route);
+		} else if (mathcing === "pass") return route;
+	}
+	if (optionalRoutes.length > 0) {
+		if (optionalRoutes.length === 1) {
+			return optionalRoutes[0];
+		} else {
+			// TODO: VALIDATOR FOR OPTIONAL
+		}
+	}
+	return null;
+};
+
+const diffRouteSchemas = (Route: RouteChild, s2: ChildRouteSchema | string[]): "pass" | "optional" | "fail" => {
+	let isPassed: "pass" | "optional" | "fail" = "pass";
+	let isOptional = false;
+	const s1 = Route.schema;
+
+	for (let i = 0; i < s1.length; i++) {
+		// TODO: CONTINUE ONLY WITH OPTIONAL ON
+		if (isPassed === "pass") {
+			const mainSeg = s1[i];
+
+			const pathSeg: string | null = s2[i]
+				? ((typeof s2[i] === "string" ? s2[i] : (s2[i] as ChildRouteSchemaSegment).name) as string)
+				: null;
+			const name = mainSeg?.name;
+
+			if (pathSeg) {
+				if (name === null && mainSeg.regexp) {
+					isPassed = mainSeg.regexp.test(pathSeg) ? "pass" : "fail";
+				} else if (mainSeg.parameter) {
+					if (mainSeg?.regexp) {
+						isPassed = mainSeg.regexp.test(pathSeg) ? "pass" : "fail";
+						console.log(isPassed);
+					}
+				} else if (mainSeg?.name && !mainSeg?.parameter && !mainSeg?.regexp) {
+					isPassed = mainSeg.name === pathSeg ? "pass" : "fail";
+				}
+
+				if (mainSeg?.optional) {
+					isOptional = true;
+				}
+			} else {
+				if (mainSeg.optional) {
+					if (mainSeg.parameter || mainSeg.regexp) isPassed = "fail";
+					else {
+						isPassed = "optional";
+						isOptional = true;
+					}
+				}
+			}
+			if (isPassed === "fail") break;
+		}
+	}
+	return isOptional && isPassed === "pass" ? "optional" : isPassed;
 };
 
 const isOptionalPathSegment = (path: string): boolean => {
 	return path.endsWith("?");
 };
 
-const parseNameFromDynamic = (path: string): string => {
-	let res = isDynamicPathSegment(path) ? path.slice(1) : path;
-	res = isOptionalPathSegment(res) ? res.slice(0, res.length - 1) : res;
-	return res;
+const isDynamicPath = (path: string): boolean => {
+	const re = /^:{1}[A-Za-z0-9_.~-]+$/;
+	return re.test(path);
 };
 
-const getPathSchema = (string: string): ChildRouteSchema => {
-	if (string === "/") {
-		return ["/"];
+const isDynamicWithRegex = (path: string): boolean => {
+	const re = /^:{1}?[A-Za-z0-9_.~-]+\(.*\)$/;
+	return re.test(path);
+};
+
+const isRegexPath = (path: string): boolean => {
+	const re = /^\(.*\)$/;
+	return re.test(path);
+};
+
+const isAllowedNameForURL = (path: string): boolean => {
+	const re = /^[A-Za-z0-9_.~-]*$/;
+	return re.test(path);
+};
+
+const extractNameFromPath = (path: string): string | null => {
+	const re = /\b[A-Za-z0-9_.~-]+\b/;
+	//@ts-ignore Regex will return string or null, but not array
+	const res = path.match(re);
+	return res ? res[0] : null;
+};
+
+const extractRegexFromPath = (path: string, convertToRegEXP?: boolean): string | RegExp | null => {
+	const re = /\(.+\)/g;
+	//@ts-ignore Regex will return string or null, but not array
+	const res = path.match(re);
+	let regexpString = res ? res[0] : null;
+	if (regexpString) {
+		regexpString = regexpString.slice(1, regexpString.length - 1);
+		return convertToRegEXP ? new RegExp(regexpString) : regexpString;
+	}
+	return null;
+};
+
+const getPathSchema = (path: string): ChildRouteSchema => {
+	if (path === "/") {
+		return [{ name: "/" }];
 	}
 
 	const res: ChildRouteSchema = [];
-	const spliited = string.split("/");
-	spliited.forEach((seg) => {
-		if (isDynamicPathSegment(seg)) {
-			const data: ChildRouteSchemaSegment = { name: parseNameFromDynamic(seg) };
-			if (isOptionalPathSegment(seg)) {
-				data.optional = true;
+	const splited = path.split("/");
+	splited.forEach((seg) => {
+		const data: ChildRouteSchemaSegment | null = { name: seg };
+
+		const isOptional = isOptionalPathSegment(seg);
+		seg = isOptional ? seg.slice(0, seg.length - 1) : seg;
+
+		if (isDynamicWithRegex(seg)) {
+			data.parameter = true;
+			const name = extractNameFromPath(seg) as string;
+			if (name) {
+				data.name = name;
+				const regexp = extractRegexFromPath(seg, true) as RegExp;
+				if (regexp) data.regexp = regexp;
+			} else {
+				logger.error(
+					`One of parameters of path "${path}" dont contain name, parameter: "${seg}". Any path parameter name should contains atleast 1 character.`
+				);
 			}
-			res.push(data);
-		} else res.push(seg);
+		} else if (isRegexPath(seg)) {
+			const regexp = extractRegexFromPath(seg, true) as RegExp;
+			if (regexp) data.regexp = regexp;
+		} else if (isDynamicPath(seg)) {
+			data.parameter = true;
+			data.name = extractNameFromPath(seg) as string;
+		} else if (isAllowedNameForURL(seg)) {
+			data.name = extractNameFromPath(seg) as string;
+		} else {
+			logger.error(`Part "${seg}" of path "${path}" does not match any allowed pattern.
+	Check if:
+	1. Make sure if your path is using allowed characters specified in RFC3968 (2.3): (A-Z, a-z, 0-9, _, ., ~, -,). 
+	2. If using regex then follow one of these patterns:
+		- ( :example(^.*\\D$)"?" ): for parameter path segment
+		- ( (^.*\\D$)"?" ): for non parameter path segment
+
+		("?" - stands for: allowing using optional)
+			`);
+		}
+
+		if (isOptional) {
+			data.optional = true;
+		}
+
+		res.push(data);
 	});
 	return res;
 };
@@ -60,4 +201,4 @@ function HandleRouteResponse(body: any, descriptor: TypedPropertyDescriptor<any>
 	return response;
 }
 
-export { isDynamicPathSegment, getPathSchema, getRouteParameters, HandleRouteResponse };
+export { getPathSchema, getRouteParameters, HandleRouteResponse, findRouteByParams, diffRouteSchemas };

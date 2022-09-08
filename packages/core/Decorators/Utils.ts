@@ -5,25 +5,36 @@ import { NactRequest } from "../nact-request/index";
 import { getPathSchema } from "../../utils/RoutingUtils";
 import { removeSlashes } from "../../utils/Other";
 
-import type { RouteChild } from "../../../app";
+import type { ChildRouteSchema, RouteChild } from "../../../app";
 
-const getRouteData = (
-	path: string,
-	target: () => any,
-	propertyKey: string,
-	descriptor: TypedPropertyDescriptor<any>
-): RouteChild => {
-	const clearedPath = removeSlashes(path);
-	const pathSchema = getPathSchema(clearedPath);
-	let isAbsolute = true;
+const getRegexPreset = (regexString: string): string => {
+	if (regexString === "*") {
+		regexString = ".*";
+	}
+	return regexString;
+};
 
-	const dynamicIndexes: number[] = [];
-	pathSchema.forEach((seg, index) => {
-		if (typeof seg === "object") {
-			dynamicIndexes.push(index);
-			isAbsolute = false;
-		}
-	});
+const getRouteData = (path: string | RegExp, propertyKey: string): RouteChild => {
+	let clearedPath = null;
+	let pathSchema: ChildRouteSchema = [];
+	let isAbsolute = false;
+	let dynamicIndexes: number[] = [];
+	const isRegex = path instanceof RegExp;
+	if (!isRegex) {
+		clearedPath = removeSlashes(path);
+		pathSchema = getPathSchema(clearedPath);
+
+		dynamicIndexes = [];
+		isAbsolute = true;
+		pathSchema.forEach((seg, index) => {
+			if (seg?.parameter) {
+				isAbsolute = false;
+			}
+		});
+	} else if (isRegex) {
+		pathSchema = [{ name: null, regexp: path as RegExp }];
+	}
+
 	return {
 		path: clearedPath,
 		name: propertyKey,
@@ -37,10 +48,11 @@ const getRouteData = (
 const setMethodForRoute = (
 	descriptor: TypedPropertyDescriptor<any>,
 	method: string,
-	paths: string | string[]
+	paths: string | RegExp | (string | RegExp)[]
 ): void | null => {
 	const routeMethod = Reflect.getMetadata(ROUTE__METHOD, descriptor);
 	const pathMethod = Reflect.getMetadata(ROUTE__PATH, descriptor);
+
 	let isPathsSame = false;
 	if (Array.isArray(pathMethod) && Array.isArray(paths)) {
 		if (pathMethod.length === paths.length) {

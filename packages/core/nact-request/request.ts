@@ -130,7 +130,6 @@ class NactRequest {
 		const response: NactResponseBody = { body: data?.body ?? null };
 
 		this.ContentType(response.contentType ?? this.getMimeType(response.body));
-		this.status(response.status ?? 200);
 
 		return this.closeRequest(response.body) ?? this.response;
 	}
