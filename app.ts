@@ -5,8 +5,6 @@ import { Ip, Param, Query, Req, Get, HttpStatus, ContentType } from "./packages/
 import url from "url";
 import NactCors from "./packages/other/Middleware/Cors/middleware";
 
-import { isUppercase } from "./packages/utils/Other";
-import { findRouteByParams } from "./packages/utils/RoutingUtils";
 import "reflect-metadata";
 
 import { createSharedNactLogger, NactLogger } from "./packages/core/nact-logger/index";
@@ -14,7 +12,6 @@ import { NactRequest } from "./packages/core/nact-request/index";
 import {
 	CONTROLLER_ROUTER__NAME,
 	CONTROLLER__WATERMARK,
-	ROUTE__OPTIONS,
 	HTTPContentType,
 	HTTPStatusCodes,
 } from "./packages/core/nact-constants/index";
@@ -32,6 +29,8 @@ import {
 
 import { TypeORMModule, TestEntity } from "./packages/other/rootModules/TypeOrmModule/module";
 
+import { NactRouteLibrary } from "./packages/core/index";
+
 getTransferModule().useRootModule(
 	TypeORMModule.root({
 		type: "postgres",
@@ -45,39 +44,11 @@ getTransferModule().useRootModule(
 	}) as any
 );
 
-interface NactRoutes {
-	[K: string]: NactRoute;
-}
-
 interface InjectRequest {
 	url: string;
 	headers: { [K: string]: string };
 	method: "GET" | "POST" | "DELETE" | "OPTIONS" | "PUT";
 	authority?: string;
-}
-
-export interface NactRoute {
-	child: { [K: string]: RouteChild };
-	absolute: string[];
-	self: { new (): any };
-}
-
-export interface ChildRouteSchemaSegment {
-	name: string | null;
-	optional?: boolean;
-	regexp?: RegExp | null;
-	parameter?: boolean;
-}
-export type ChildRouteSchema = Array<ChildRouteSchemaSegment>;
-
-export interface RouteChild {
-	path: string | null;
-	fullPath?: string;
-	name: string;
-	method: "GET" | "POST";
-	absolute: boolean;
-	schema: ChildRouteSchema;
-	dynamicIndexes: number[];
 }
 
 export interface serverSettings {
@@ -90,7 +61,7 @@ export interface NactRouteResponse {
 	contentType?: string;
 }
 
-const getControllerPath = (instance: any): string | null => {
+export const getControllerPath = (instance: any): string | null => {
 	return Reflect.getOwnMetadata(CONTROLLER_ROUTER__NAME, instance) ?? null;
 };
 
@@ -108,7 +79,7 @@ class NactServer {
 	server: http.Server;
 	serverRunningURL: string | null;
 	serverPort: number | null;
-	routes: NactRoutes;
+	RouteLibrary: NactRouteLibrary;
 	IPv4: string | null;
 	logger: NactLogger;
 	middleware: any; //NactMiddleware;
@@ -117,8 +88,8 @@ class NactServer {
 		this.server = http.createServer(this.__RequestHandler);
 		this.serverRunningURL = null;
 		this.serverPort = null;
-		this.routes = {};
 		this.logger = createSharedNactLogger({ isEnable: serverSetting?.loggerEnabled ?? true });
+		this.RouteLibrary = new NactRouteLibrary(undefined, { logger: this.logger });
 		this.IPv4 = null;
 		this.middleware = [];
 		this.running = false;
@@ -126,17 +97,16 @@ class NactServer {
 		this.__initialize();
 	}
 
+	// ===== Initilization =====
 	protected async __initialize() {
 		await getTransferModule().initialize();
-		this.registerController(getTransferModule().getModulesControllers(true));
+		const controllers = getTransferModule().getModulesControllers(true);
+		this.RouteLibrary.registerController(controllers);
 		this.__getLocalMachineIP();
 
 		this.__messageOnInitilizationEnd();
 	}
 
-	get(): http.Server {
-		return this.server;
-	}
 	protected __messageOnInitilizationEnd() {
 		if (this.running) {
 			const protocol = "http://";
@@ -148,6 +118,42 @@ class NactServer {
 			this.logger.log("NactServer is successfully configured");
 		}
 	}
+
+	// ---- Protected utils ----
+
+	protected __getLocalMachineIP(): void {
+		const net = networkInterfaces();
+		const en0 = net.en0;
+		if (en0) {
+			if (en0[1]) {
+				const IPv4 = en0[1].address;
+				this.IPv4 = IPv4;
+			}
+		}
+	}
+
+	protected __RequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
+		const request = new NactRequest(req, res);
+		this.__executeRequest(request);
+	};
+
+	protected __executeRequest(request: NactRequest): any {
+		let response = undefined;
+		if (runMiddlewares(this.middleware, request)) {
+			const routeMethod = this.RouteLibrary.getRouteMethodOr404(request);
+			if (routeMethod) {
+				response = routeMethod(request);
+			}
+		}
+		return request.send(response);
+	}
+
+	// ==== Public ====
+
+	get(): http.Server {
+		return this.server;
+	}
+
 	listen(port: number) {
 		if (!this.running) {
 			this.server.listen(port, () => {
@@ -170,65 +176,9 @@ class NactServer {
 		this.middleware = [];
 	}
 
-	protected __getLocalMachineIP(): void {
-		const net = networkInterfaces();
-		const en0 = net.en0;
-		if (en0) {
-			if (en0[1]) {
-				const IPv4 = en0[1].address;
-				this.IPv4 = IPv4;
-			}
-		}
-	}
-
-	protected __RequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
-		const request = new NactRequest(req, res);
-		this.__executeRequest(request);
-	};
-
-	protected __resolverRouteMethod(req: NactRequest): ((...args: any[]) => any[]) | undefined {
-		const params = req.urldata.params;
-		const firstParam = params[0];
-		const Router = this.routes[firstParam];
-
-		let absolutePath = params.join("/");
-		let route: RouteChild | null = null;
-		let routeMethod;
-
-		if (Router) {
-			if (params.length > 1) {
-				// AT CURRENT STATE: Route is founded by path only, so we have to add METHOD SOON
-				if (Router.absolute.includes(absolutePath)) route = Router.child[absolutePath];
-				else route = findRouteByParams(Router, params);
-			} else {
-				absolutePath = firstParam + "//";
-				if (Router.absolute.includes(absolutePath)) route = Router.child[absolutePath];
-			}
-			if (route) {
-				req.__route = route;
-				//@ts-ignore
-				routeMethod = Router.self[route.name];
-			} else {
-				req.status(404);
-			}
-		}
-		return routeMethod;
-	}
-
-	protected __executeRequest(request: NactRequest): any {
-		let response = undefined;
-		if (runMiddlewares(this.middleware, request)) {
-			const routeMethod = this.__resolverRouteMethod(request);
-			if (routeMethod) {
-				response = routeMethod(request);
-			}
-		}
-		return request.send(response);
-	}
-
 	clearModuleConfiguration(cb: () => void): void {
 		const transferModule = createNewTransferModule();
-		this.routes = {};
+		this.RouteLibrary.clear();
 		cb();
 		transferModule.initialize();
 	}
@@ -296,66 +246,6 @@ class NactServer {
 		const nactRequest = new NactRequest(request, response);
 		return new NactRequest(request, this.__executeRequest(nactRequest));
 	}
-
-	registerController(controllerClass: { new (): any }[]) {
-		controllerClass.forEach((controller) => {
-			const controllerConstructor = controller.constructor;
-			const contorllerRoutePath = getControllerPath(controllerConstructor as any);
-			if (contorllerRoutePath) {
-				this.routes[contorllerRoutePath] = { child: {}, absolute: [], self: controller };
-				const CurrentRoute = this.routes[contorllerRoutePath];
-
-				const controllerDescriptors = Object.getOwnPropertyDescriptors(controllerConstructor.prototype);
-				const contorllerDescriptorKeys = Object.keys(controllerDescriptors);
-				const registeredRoutes: string[] = [];
-
-				contorllerDescriptorKeys.forEach((descriptorKey) => {
-					if (isUppercase(descriptorKey)) {
-						const descriptorConstructor = controller.constructor;
-						const routesParamters: RouteChild[] = Reflect.getMetadata(
-							ROUTE__OPTIONS,
-							descriptorConstructor,
-							descriptorKey
-						);
-						const routesParamtersLength = routesParamters.length;
-
-						for (let i = 0; i < routesParamtersLength; i++) {
-							const routeParamters = routesParamters[i];
-							if (routeParamters) {
-								routeParamters.schema.unshift({ name: contorllerRoutePath as string });
-
-								const absolutePath = contorllerRoutePath + "/" + routeParamters.path;
-
-								CurrentRoute.child[absolutePath] = { ...routeParamters, fullPath: absolutePath };
-								if (routeParamters.absolute) {
-									CurrentRoute.absolute.push(absolutePath);
-								}
-							}
-						}
-
-						let message = descriptorKey;
-						if (routesParamtersLength > 1) {
-							const pathsNames = routesParamters.reduce((prev, next, i) => {
-								prev += `${next.path}${i !== routesParamtersLength - 1 ? ", " : ""}`;
-								return prev;
-							}, "");
-							message = `${descriptorKey} (path: ${pathsNames})`;
-						}
-
-						registeredRoutes.push(message);
-					}
-				});
-				this.logger.log(
-					`successfully registered "${
-						controllerConstructor.name
-					}" controller with routes methods with names: "${registeredRoutes.join(", ")}". Total: ${
-						registeredRoutes.length
-					} routes`
-				);
-			}
-			console.log(this.routes);
-		});
-	}
 }
 
 @Controller("api")
@@ -410,10 +300,9 @@ createModule({
 		TestService,
 		createProvider({
 			providerName: "test",
-			useFactory: (arg: any) => {
+			useFactory: () => {
 				return "test";
 			},
-			injectArguments: [{ provide: "TestService32", optional: true }],
 		}),
 		TestService3,
 	],
