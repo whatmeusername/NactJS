@@ -1,6 +1,5 @@
 import { createRouteParamDecorator } from "../Utils";
-import { NactRequest } from "../../nact-request/index";
-import { RouteChild } from "../../../../app";
+import { RouteChild, NactRequest } from "../../index";
 
 const Param = createRouteParamDecorator(function (req: NactRequest) {
 	const route = req.route as RouteChild;
@@ -10,7 +9,7 @@ const Param = createRouteParamDecorator(function (req: NactRequest) {
 	for (let i = 0; i < requestPathSchema.length; i++) {
 		const param = requestPathSchema[i];
 		const routeParam = route.schema[i];
-		if (typeof routeParam === "object") {
+		if (routeParam?.name && typeof routeParam === "object") {
 			routeParams[routeParam.name] = param;
 		}
 	}

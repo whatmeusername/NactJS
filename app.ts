@@ -27,22 +27,7 @@ import {
 	TestServiceModuleV1,
 } from "./TemperaryFolder/TestServices";
 
-import { TypeORMModule, TestEntity } from "./packages/other/rootModules/TypeOrmModule/module";
-
 import { NactRouteLibrary } from "./packages/core/index";
-
-getTransferModule().useRootModule(
-	TypeORMModule.root({
-		type: "postgres",
-		host: "localhost",
-		port: 5432,
-		username: "maksimmoiseev",
-		password: "28092004",
-		database: "test_backend",
-		synchronize: true,
-		autoLoadEntities: true,
-	}) as any
-);
 
 interface InjectRequest {
 	url: string;
@@ -100,7 +85,10 @@ class NactServer {
 	// ===== Initilization =====
 	protected async __initialize() {
 		await getTransferModule().initialize();
+		//eslint-disable-next-line
+
 		const controllers = getTransferModule().getModulesControllers(true);
+		this.RouteLibrary.regexpVariables.presets["test"] = "test";
 		this.RouteLibrary.registerController(controllers);
 		this.__getLocalMachineIP();
 
@@ -144,8 +132,8 @@ class NactServer {
 			if (routeMethod) {
 				response = routeMethod(request);
 			}
+			return request.send(response);
 		}
-		return request.send(response);
 	}
 
 	// ==== Public ====
@@ -258,9 +246,19 @@ class ApiController {
 		return { message: "bye" };
 	}
 
+	@Get("/hello/:id(num)?")
+	HelloWorld1() {
+		return { message: "Hello world 1" };
+	}
+
+	@Get("/hello/:id(str)")
+	HelloWorld2() {
+		return { message: "Hello world 2" };
+	}
+
 	@Get("/")
 	HelloWorld() {
-		return "bye";
+		return { message: "Hello world" };
 	}
 
 	@Get("/:yes/hello/:id?")
@@ -290,7 +288,7 @@ createModule({
 
 createModule({
 	controllers: [],
-	providers: [TypeORMModule.getRepositories([TestEntity]), TestServiceModuleV1],
+	providers: [TestServiceModuleV1],
 	import: [TestServiceModule3, TestService3],
 });
 
@@ -318,7 +316,6 @@ function App() {
 	app.listen(8000);
 }
 
-//console.clear();
 App();
 
 export default NactServer;

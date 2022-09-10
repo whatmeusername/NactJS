@@ -1,5 +1,7 @@
 import type { NactLogger } from "../index";
 
+type HTTPMethods = "GET" | "POST" | "HEAD" | "PUT" | "DELETE" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH";
+
 interface NactLibraryConfig {
 	logger?: NactLogger;
 }
@@ -14,6 +16,15 @@ interface NactRoute {
 	self: { new (): any };
 }
 
+interface NactRouteMethodData {
+	method: HTTPMethods;
+	paths: (string | RegExp)[];
+	data: RouteChild[];
+}
+interface NactRouteData {
+	[key: string]: NactRouteMethodData;
+}
+
 interface ChildRouteSchemaSegment {
 	name: string | null;
 	optional?: boolean;
@@ -23,13 +34,23 @@ interface ChildRouteSchemaSegment {
 type ChildRouteSchema = Array<ChildRouteSchemaSegment>;
 
 interface RouteChild {
-	path: string | null;
-	fullPath?: string;
+	path: string;
 	name: string;
-	method: "GET" | "POST";
+	method: HTTPMethods;
 	absolute: boolean;
 	schema: ChildRouteSchema;
 	dynamicIndexes: number[];
+	isRegex?: boolean;
 }
 
-export type { NactRoute, RouteChild, ChildRouteSchema, ChildRouteSchemaSegment, NactRoutes, NactLibraryConfig };
+export type {
+	NactRoute,
+	RouteChild,
+	ChildRouteSchema,
+	ChildRouteSchemaSegment,
+	NactRoutes,
+	NactLibraryConfig,
+	HTTPMethods,
+	NactRouteMethodData,
+	NactRouteData,
+};

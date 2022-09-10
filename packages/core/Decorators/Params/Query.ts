@@ -1,5 +1,5 @@
 import { createRouteParamDecorator } from "../Utils";
-import { NactRequest } from "../../nact-request/index";
+import { NactRequest } from "../../index";
 
 const Query = createRouteParamDecorator(function (req: NactRequest) {
 	return req.urldata.query;

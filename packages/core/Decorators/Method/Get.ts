@@ -1,9 +1,12 @@
-import { ROUTE__PARAMS, ROUTE__PARAMETER__METADATA, ROUTE__OPTIONS } from "../../nact-constants/index";
-
-import { setMethodForRoute, getRouteData } from "../Utils";
-import { HandleRouteResponse, getRouteParameters } from "../../../utils/RoutingUtils";
-import type { NactRequest } from "../../nact-request/index";
-import { RouteChild } from "../../../../app";
+import type { NactRequest } from "../../index";
+import {
+	HandleRouteResponse,
+	getRouteParameters,
+	ROUTE__PARAMS,
+	ROUTE__PARAMETER__METADATA,
+	ROUTE__OPTIONS,
+	NactRouteData,
+} from "../../index";
 
 function Get(...paths: (string | RegExp)[]): any {
 	return function (
@@ -12,10 +15,7 @@ function Get(...paths: (string | RegExp)[]): any {
 		descriptor: TypedPropertyDescriptor<any>
 	): TypedPropertyDescriptor<any> {
 		const descriptorMethod = descriptor.value as (...args: any[]) => any;
-		const routesData: RouteChild[] = [];
-		setMethodForRoute(descriptor, "GET", paths);
-
-		paths.forEach((path) => routesData.push(getRouteData(path, propertyKey)));
+		const routesData: NactRouteData = { ["GET"]: { paths: paths, data: [], method: "GET" } };
 		Reflect.defineMetadata(ROUTE__OPTIONS, routesData, target.constructor, propertyKey);
 
 		descriptor.value = function (request: NactRequest) {

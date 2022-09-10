@@ -1,14 +1,12 @@
 import { IncomingMessage, ServerResponse } from "http";
-import { HTTPStatusCodes, HTTPContentType } from "../nact-constants/index";
+import { HTTPStatusCodes, HTTPContentType, RouteChild, getNactLogger, NactLogger, HTTPMethods } from "../index";
 
 import { mime } from "send";
 import fs from "fs";
 
 import { parse } from "path";
-import { RouteChild } from "../../../app";
 
 import { getRequestURLInfo, getProtocol, getRequestIP, getHost, getOrigin } from "../../utils/URLUtils";
-import { getNactLogger, NactLogger } from "../nact-logger/logger";
 
 import { NactUrlParseQuery, NactSendFileOption, NactResponseBody } from "./index";
 
@@ -24,7 +22,7 @@ class NactRequest {
 
 	host: string | null;
 	origin: string;
-	method: string | null;
+	method: HTTPMethods | string | null;
 	ip: string | null;
 	protocol: "http" | "https";
 	urldata: NactUrlParseQuery;
@@ -38,7 +36,7 @@ class NactRequest {
 		this.closed = false;
 		this.host = getHost(req);
 		this.origin = (this.getHeader("Origin") ?? getOrigin(req)) as string;
-		this.method = this.__raw.method ?? null;
+		this.method = (this.__raw.method as HTTPMethods) ?? null;
 		this.ip = getRequestIP(req);
 		this.protocol = getProtocol(req);
 		this.urldata = getRequestURLInfo(req);
