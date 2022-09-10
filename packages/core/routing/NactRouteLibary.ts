@@ -74,8 +74,8 @@ class NactRouteLibrary {
 
 				for (let i = 0; i < contorllerDescriptorKeys.length; i++) {
 					const descriptorKey = contorllerDescriptorKeys[i];
-					if (isUppercase(descriptorKey)) {
-						const routeData: NactRouteData = this.getRouteMetadata(controllerConstructor, descriptorKey);
+					const routeData: NactRouteData | undefined = this.getRouteMetadata(controllerConstructor, descriptorKey);
+					if (routeData) {
 						const routeMethodsData = Object.values(routeData);
 						for (let i = 0; i < routeMethodsData.length; i++) {
 							const methodData = routeMethodsData[i];
@@ -131,20 +131,16 @@ class NactRouteLibrary {
 	getRouteMethodOr404(req: NactRequest): ((...args: any[]) => any[]) | undefined {
 		const params = req.urldata.params;
 		const firstParam = params[0];
-		const Router = this.__routes[firstParam];
+		const Router = this.__routes[firstParam] ?? this.__routes["/"];
 
-		let absolutePath = params.join("/");
+		const absolutePath = params.join("/");
 		let route: RouteChild | null = null;
 		let routeMethod;
 
 		if (Router) {
-			if (params.length > 1) {
-				if (Router.absolute.includes(absolutePath)) route = Router.child[absolutePath];
-				else route = findRouteByParams(Router, { params: params, method: req.method });
-			} else {
-				absolutePath = firstParam + "//";
-				if (Router.absolute.includes(absolutePath)) route = Router.child[absolutePath];
-			}
+			if (Router.absolute.includes(absolutePath)) route = Router.child[absolutePath];
+			else route = findRouteByParams(Router, { params: params, method: req.method });
+
 			if (route) {
 				req.__route = route;
 				//@ts-ignore
@@ -152,18 +148,28 @@ class NactRouteLibrary {
 			} else {
 				req.status(404);
 			}
+		} else {
+			req.status(404);
 		}
 		return routeMethod;
 	}
 
-	getRouteMetadata(routeDescriptor: (...args: any[]) => any, descriptorKey: string): NactRouteData;
-	getRouteMetadata(routeDescriptor: (...args: any[]) => any, descriptorKey: string, dataOnly: true): RouteChild[];
-	getRouteMetadata(routeDescriptor: (...args: any[]) => any, descriptorKey: string, dataOnly: false): NactRouteData;
+	getRouteMetadata(routeDescriptor: (...args: any[]) => any, descriptorKey: string): NactRouteData | undefined;
+	getRouteMetadata(
+		routeDescriptor: (...args: any[]) => any,
+		descriptorKey: string,
+		dataOnly: true
+	): RouteChild[] | undefined;
+	getRouteMetadata(
+		routeDescriptor: (...args: any[]) => any,
+		descriptorKey: string,
+		dataOnly: false
+	): NactRouteData | undefined;
 	getRouteMetadata(
 		routeDescriptor: (...args: any[]) => any,
 		descriptorKey: string,
 		dataOnly?: boolean
-	): RouteChild[] | NactRouteData {
+	): RouteChild[] | NactRouteData | undefined {
 		const metadata = Reflect.getMetadata(ROUTE__OPTIONS, routeDescriptor, descriptorKey);
 		return dataOnly ? metadata?.data : metadata;
 	}
@@ -175,24 +181,26 @@ class NactRouteLibrary {
 		overidedPaths?: string[]
 	): NactRouteMethodData | undefined {
 		const metadata = this.getRouteMetadata(routeDescriptor, descriptorKey);
-		const methodData = metadata[method];
+		if (metadata) {
+			const methodData = metadata[method];
 
-		if (methodData) {
-			if (!overidedPaths && methodData.paths.length === methodData.data.length) {
+			if (methodData) {
+				if (!overidedPaths && methodData.paths.length === methodData.data.length) {
+					return methodData;
+				}
+				const pathsLength = methodData.paths.length;
+				if (overidedPaths) {
+					methodData.paths = overidedPaths;
+				}
+				const routeMetaData: RouteChild[] = methodData.data;
+				const paths = methodData.paths;
+				for (let i = 0; i < pathsLength; i++) {
+					const path = paths[i];
+					routeMetaData.push(getRouteData(path, methodData.method, descriptorKey));
+				}
+				Reflect.defineMetadata(ROUTE__OPTIONS, metadata, routeDescriptor, descriptorKey);
 				return methodData;
 			}
-			const pathsLength = methodData.paths.length;
-			if (overidedPaths) {
-				methodData.paths = overidedPaths;
-			}
-			const routeMetaData: RouteChild[] = methodData.data;
-			const paths = methodData.paths;
-			for (let i = 0; i < pathsLength; i++) {
-				const path = paths[i];
-				routeMetaData.push(getRouteData(path, methodData.method, descriptorKey));
-			}
-			Reflect.defineMetadata(ROUTE__OPTIONS, metadata, routeDescriptor, descriptorKey);
-			return methodData;
 		}
 	}
 

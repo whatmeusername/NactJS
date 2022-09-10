@@ -127,12 +127,13 @@ class NactRequest {
 		return HTTPContentType.text;
 	}
 
-	send(data?: any): ServerResponse | undefined {
+	send(data?: any): NactRequest {
 		const response: NactResponseBody = { body: data?.body ?? this.payload };
 
 		this.ContentType(response.contentType ?? this.getMimeType(response.body));
 
-		return this.closeRequest(response.body) ?? this.response;
+		this.closeRequest(response.body) ?? this.response;
+		return this;
 	}
 
 	sendFile(path: string, options: NactSendFileOption = SendFileDefaultOption) {

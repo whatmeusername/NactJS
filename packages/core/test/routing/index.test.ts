@@ -6,14 +6,13 @@ const server = new NactServer("nact-request-test", { loggerEnabled: false });
 
 describe("nact base routing functionality", () => {
 	beforeAll(() => {
-		createModule({
-			controllers: [BaseController1],
+		server.clearModuleConfiguration((key, tm) => {
+			tm.useModule({ controllers: [BaseController1] });
 		});
 	});
 
 	test("request to static path", () => {
 		const path = "/test/";
-		console.log(server.getTransferModule());
 		const res = server.injectRequest({
 			url: path,
 			method: "GET",

@@ -89,10 +89,8 @@ class NactServer {
 	// ===== Initilization =====
 	protected async __initialize() {
 		await this.getTransferModule().initialize();
-		//eslint-disable-next-line
 
 		const controllers = this.getTransferModule().getModulesControllers(true);
-		this.RouteLibrary.regexpVariables.presets["test"] = "test";
 		this.RouteLibrary.registerController(controllers);
 		this.__getLocalMachineIP();
 
@@ -178,7 +176,11 @@ class NactServer {
 		const transferModule = createNewTransferModule(this.transferModuleKey);
 		this.RouteLibrary.clear();
 		if (cb) cb(this.transferModuleKey, this.getTransferModule());
+
 		await transferModule.initialize();
+
+		const controllers = this.getTransferModule().getModulesControllers(true);
+		this.RouteLibrary.registerController(controllers);
 	}
 
 	injectRequest(RequestData: InjectRequest) {
@@ -240,18 +242,10 @@ class NactServer {
 		}
 
 		const request = getHTTPRequest();
-		let response = new http.ServerResponse(request);
+		const response = new http.ServerResponse(request);
 		const nactRequest = new NactRequest(request, response);
 
-		request.on("data", (chunk) => {
-			console.log(chunk);
-		});
-		request.on("end", () => {
-			console.log("test");
-		});
-
-		response = this.__executeRequest(nactRequest);
-		return new NactRequest(request, response);
+		return this.__executeRequest(nactRequest);
 	}
 }
 

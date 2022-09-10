@@ -90,7 +90,7 @@ const diffRouteSchemas = (Route: RouteChild, lookup: ChildRouteSchema | string[]
 	return isOptional && isPassed === "pass" ? "optional" : isPassed;
 };
 
-const getRouteData = (path: string | RegExp, method: HTTPMethods, propertyKey: string): RouteChild => {
+const getRouteData = (path: string | RegExp, method: HTTPMethods | string, propertyKey: string): RouteChild => {
 	let clearedPath = path.toString();
 	let pathSchema: ChildRouteSchema = [];
 	let isAbsolute = false;

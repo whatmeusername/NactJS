@@ -17,7 +17,7 @@ interface NactRoute {
 }
 
 interface NactRouteMethodData {
-	method: HTTPMethods;
+	method: HTTPMethods | string;
 	paths: (string | RegExp)[];
 	data: RouteChild[];
 }
@@ -36,7 +36,7 @@ type ChildRouteSchema = Array<ChildRouteSchemaSegment>;
 interface RouteChild {
 	path: string;
 	name: string;
-	method: HTTPMethods;
+	method: HTTPMethods | string;
 	absolute: boolean;
 	schema: ChildRouteSchema;
 	dynamicIndexes: number[];
