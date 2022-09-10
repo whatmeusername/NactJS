@@ -65,6 +65,7 @@ const setReadyForProivider = (provider: ProviderData, ready: boolean): ProviderD
 
 class NactModule {
 	protected readonly __moduleToken: string;
+	readonly transferModulesKey: string;
 	readonly __moduleSettings: NactModuleSettings | null;
 	__isInited: boolean;
 
@@ -73,7 +74,8 @@ class NactModule {
 	providers: ProviderData[];
 	controllers: ControllerData[];
 
-	constructor(settings: NactModuleSettings) {
+	constructor(settings: NactModuleSettings, transferModulesKey?: string) {
+		this.transferModulesKey = transferModulesKey ?? "0";
 		this.__moduleToken = getUniqueToken(settings.isRoot ? ROOT_MODULE_TOKEN : MODULE_TOKEN);
 		this.__moduleSettings = settings;
 		this.__isInited = false;
@@ -301,7 +303,7 @@ class NactModule {
 
 		this.providers.push(providerData);
 
-		getTransferModule().__providersLocator.push({
+		getTransferModule(this.transferModulesKey).__providersLocator.push({
 			name: customProvider.providerName,
 			moduleKey: this.getModuleToken(),
 			key: providerData.uniqueToken,
@@ -345,7 +347,7 @@ class NactModule {
 				setReadyForProivider(providerData, isResolved);
 				this.providers.push(providerData);
 
-				getTransferModule().__providersLocator.push({
+				getTransferModule(this.transferModulesKey).__providersLocator.push({
 					name: provider.name,
 					moduleKey: this.getModuleToken(),
 					key: providerData.uniqueToken,
@@ -474,10 +476,10 @@ class NactModule {
 	}
 }
 
-function createModule(settings: NactModuleSettings) {
+function createModule(settings: NactModuleSettings, transferModulesKey?: string) {
 	settings.isRoot = false;
-	const newModule = new NactModule(settings);
-	getTransferModule().append(newModule);
+	const newModule = new NactModule(settings, transferModulesKey);
+	getTransferModule(transferModulesKey).append(newModule);
 	return newModule.getModuleToken();
 }
 

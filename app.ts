@@ -17,6 +17,7 @@ import {
 } from "./packages/core/nact-constants/index";
 
 import { createModule, createProvider, getTransferModule, createNewTransferModule } from "./packages/core/Module/index";
+import type { NactTransferModule } from "./packages/core/Module/index";
 
 import {
 	TestService,
@@ -31,7 +32,7 @@ import { NactRouteLibrary } from "./packages/core/index";
 
 interface InjectRequest {
 	url: string;
-	headers: { [K: string]: string };
+	headers?: { [K: string]: string };
 	method: "GET" | "POST" | "DELETE" | "OPTIONS" | "PUT";
 	authority?: string;
 }
@@ -69,7 +70,9 @@ class NactServer {
 	logger: NactLogger;
 	middleware: any; //NactMiddleware;
 	running: boolean;
-	constructor(serverSetting?: serverSettings) {
+	transferModuleKey: string;
+
+	constructor(transferModuleKey?: string, serverSetting?: serverSettings) {
 		this.server = http.createServer(this.__RequestHandler);
 		this.serverRunningURL = null;
 		this.serverPort = null;
@@ -78,16 +81,17 @@ class NactServer {
 		this.IPv4 = null;
 		this.middleware = [];
 		this.running = false;
+		this.transferModuleKey = transferModuleKey ?? "0";
 
 		this.__initialize();
 	}
 
 	// ===== Initilization =====
 	protected async __initialize() {
-		await getTransferModule().initialize();
+		await this.getTransferModule().initialize();
 		//eslint-disable-next-line
 
-		const controllers = getTransferModule().getModulesControllers(true);
+		const controllers = this.getTransferModule().getModulesControllers(true);
 		this.RouteLibrary.regexpVariables.presets["test"] = "test";
 		this.RouteLibrary.registerController(controllers);
 		this.__getLocalMachineIP();
@@ -131,13 +135,17 @@ class NactServer {
 			const routeMethod = this.RouteLibrary.getRouteMethodOr404(request);
 			if (routeMethod) {
 				response = routeMethod(request);
+				request.payload = response;
 			}
-			return request.send(response);
+			return request.send();
 		}
 	}
 
 	// ==== Public ====
 
+	getTransferModule(): NactTransferModule {
+		return getTransferModule(this.transferModuleKey);
+	}
 	get(): http.Server {
 		return this.server;
 	}
@@ -164,11 +172,13 @@ class NactServer {
 		this.middleware = [];
 	}
 
-	clearModuleConfiguration(cb: () => void): void {
-		const transferModule = createNewTransferModule();
+	async clearModuleConfiguration(
+		cb?: (transferModuleKey: string, transferModule: NactTransferModule) => void
+	): Promise<void> {
+		const transferModule = createNewTransferModule(this.transferModuleKey);
 		this.RouteLibrary.clear();
-		cb();
-		transferModule.initialize();
+		if (cb) cb(this.transferModuleKey, this.getTransferModule());
+		await transferModule.initialize();
 	}
 
 	injectRequest(RequestData: InjectRequest) {
@@ -180,7 +190,7 @@ class NactServer {
 			}
 
 			function setHost(req: http.IncomingMessage) {
-				req.headers.host = RequestData.headers.host || (RequestData?.authority ?? false) || (URLdata.host ?? "");
+				req.headers.host = RequestData.headers?.host || (RequestData?.authority ?? false) || (URLdata.host ?? "");
 			}
 
 			function setHttpVersion(req: http.IncomingMessage) {
@@ -203,7 +213,7 @@ class NactServer {
 				}
 			}
 			function setUserAgent(req: http.IncomingMessage) {
-				req.headers["user-agent"] = RequestData.headers["user-agent"] || "NactFakeRequest";
+				req.headers["user-agent"] = RequestData.headers ? RequestData.headers["user-agent"] : "NactFakeRequest";
 			}
 
 			function setRawHeaders(req: http.IncomingMessage) {
@@ -230,9 +240,18 @@ class NactServer {
 		}
 
 		const request = getHTTPRequest();
-		const response = new http.ServerResponse(request);
+		let response = new http.ServerResponse(request);
 		const nactRequest = new NactRequest(request, response);
-		return new NactRequest(request, this.__executeRequest(nactRequest));
+
+		request.on("data", (chunk) => {
+			console.log(chunk);
+		});
+		request.on("end", () => {
+			console.log("test");
+		});
+
+		response = this.__executeRequest(nactRequest);
+		return new NactRequest(request, response);
 	}
 }
 
@@ -270,7 +289,7 @@ class ApiController {
 	}
 }
 
-function Controller(path: string): any {
+function Controller(path = "/"): any {
 	return function (target: () => any) {
 		Reflect.defineMetadata(CONTROLLER_ROUTER__NAME, path, target);
 		Reflect.defineMetadata(CONTROLLER__WATERMARK, true, target);
@@ -316,7 +335,7 @@ function App() {
 	app.listen(8000);
 }
 
-App();
+//App();
 
 export default NactServer;
 export { Controller };

@@ -15,8 +15,8 @@ const SendFileDefaultOption = {
 };
 
 class NactRequest {
-	protected __raw: IncomingMessage;
-	private response: ServerResponse;
+	request: IncomingMessage;
+	response: ServerResponse;
 	public readonly route: RouteChild | null;
 	public closed: boolean;
 
@@ -26,20 +26,22 @@ class NactRequest {
 	ip: string | null;
 	protocol: "http" | "https";
 	urldata: NactUrlParseQuery;
+	payload: any;
 
 	protected __logger: NactLogger;
 
 	constructor(req: IncomingMessage, res: ServerResponse) {
-		this.__raw = req;
+		this.request = req;
 		this.response = res;
 		this.route = null;
 		this.closed = false;
 		this.host = getHost(req);
 		this.origin = (this.getHeader("Origin") ?? getOrigin(req)) as string;
-		this.method = (this.__raw.method as HTTPMethods) ?? null;
+		this.method = (this.request.method as HTTPMethods) ?? null;
 		this.ip = getRequestIP(req);
 		this.protocol = getProtocol(req);
 		this.urldata = getRequestURLInfo(req);
+		this.payload = null;
 
 		this.__logger = getNactLogger() as NactLogger;
 	}
@@ -66,7 +68,7 @@ class NactRequest {
 	}
 
 	getHeader(name: string): string | string[] | null {
-		return this.__raw.headers[name] ?? null;
+		return this.request.headers[name] ?? null;
 	}
 
 	header(header: string, value: boolean | number | string | string[]): NactRequest {
@@ -89,7 +91,8 @@ class NactRequest {
 			if (data) {
 				const stringifyData = JSON.stringify(data);
 				this.length(stringifyData.length);
-				return this.response.end(stringifyData);
+				this.response.write(stringifyData);
+				return this.response.end();
 			} else return this.response.end();
 		}
 	}
@@ -124,8 +127,8 @@ class NactRequest {
 		return HTTPContentType.text;
 	}
 
-	send(data: any): ServerResponse | undefined {
-		const response: NactResponseBody = { body: data?.body ?? null };
+	send(data?: any): ServerResponse | undefined {
+		const response: NactResponseBody = { body: data?.body ?? this.payload };
 
 		this.ContentType(response.contentType ?? this.getMimeType(response.body));
 

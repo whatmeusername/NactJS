@@ -26,12 +26,15 @@ import {
 import * as utils from "util";
 
 // const logger = getNactLogger();
-let NactTransferModuleInstance: NactTransferModule;
 const NactLogger = getNactLogger();
 
-function getTransferModule(): NactTransferModule {
+const transferModulesStorage: Map<string, NactTransferModule> = new Map<string, NactTransferModule>();
+function getTransferModule(key?: string): NactTransferModule {
+	const tmKey = key ?? "0";
+	let NactTransferModuleInstance = transferModulesStorage.get(tmKey);
 	if (!NactTransferModuleInstance) {
-		NactTransferModuleInstance = new NactTransferModule();
+		NactTransferModuleInstance = new NactTransferModule(tmKey);
+		transferModulesStorage.set(tmKey, NactTransferModuleInstance);
 	}
 	return NactTransferModuleInstance;
 }
@@ -48,9 +51,11 @@ function createRootModule(settings: NactRootModuleSettings): NactModule {
 	return newModule;
 }
 
-function createNewTransferModule(): NactTransferModule {
-	NactTransferModuleInstance = new NactTransferModule();
-	return NactTransferModuleInstance;
+function createNewTransferModule(key?: string): NactTransferModule {
+	const tmKey = key ?? "0";
+	const newInstance = new NactTransferModule(tmKey);
+	transferModulesStorage.set(tmKey, newInstance);
+	return newInstance;
 }
 
 class NactTransferModule {
@@ -59,15 +64,16 @@ class NactTransferModule {
 	protected readonly __rootModules: NactModule[];
 	protected __phase: "preparing" | "resolving" | "ready";
 	protected __asyncQueryCount: number;
+	readonly key: string;
 	__providersLocator: ProviderLocation[];
 
-	constructor(modules?: NactModule[]) {
+	constructor(key: string) {
 		this.__providersLocator = [];
 		this.__modules = [];
 		this.__exports = [];
 		this.__asyncQueryCount = 0;
 		this.__phase = "preparing";
-		if (modules) this.append(modules);
+		this.key = key ?? "0";
 	}
 
 	// ===== Getters ====
@@ -98,7 +104,7 @@ class NactTransferModule {
 		} else append(module);
 	}
 
-	useRootModule(settings: NactRootModuleSettings) {
+	useRootModule(settings: NactRootModuleSettings): void {
 		const exportAllProviders = (settings: NactRootModuleSettings): NactRootModuleSettings => {
 			const providers = settings.providers ?? [];
 			settings.export = [];
@@ -129,6 +135,13 @@ class NactTransferModule {
 				this.__asyncQueryCount -= 1;
 			});
 		} else create(settings);
+	}
+
+	useModule(settings: NactModuleSettings): string {
+		settings.isRoot = false;
+		const newModule = new NactModule(settings, this.key);
+		this.append(newModule);
+		return newModule.getModuleToken();
 	}
 
 	hasModule(moduleKey: string): boolean {

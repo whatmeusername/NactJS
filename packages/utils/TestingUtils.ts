@@ -37,7 +37,6 @@ class NactResponseTestingUtil {
 	}
 	status(status: number): NactResponseTestingUtil {
 		if (this.passing) {
-			//@ts-expect-error accessing to protected property
 			const responseStatusCode = this.NactRequest.response?.statusCode;
 			if (responseStatusCode !== status) {
 				this.passing = false;
@@ -61,7 +60,6 @@ class NactResponseTestingUtil {
 
 	header(Header: string, value: string | number | undefined): NactResponseTestingUtil {
 		if (this.passing) {
-			//@ts-expect-error accessing to protected property
 			let header = this.NactRequest.response.getHeader(Header);
 			if (Array.isArray(header)) header = header.join(",").trim();
 

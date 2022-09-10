@@ -21,25 +21,12 @@ class TestController {
 
 createModule({ controllers: [TestController] });
 
-const createSimplyServer = async (port: number) => {
-	const server = new NactServer({ loggerEnabled: false });
-	server.listen(port);
-	await sleep(250);
-	return server;
-};
-
-function sleep(ms: number) {
-	return new Promise((resolve) => {
-		setTimeout(resolve, ms);
-	});
-}
-
 describe("Cors middleware testing", () => {
 	let server: NactServer;
 	let serverURL = "";
 
 	beforeAll(async () => {
-		server = (await createSimplyServer(8000)) as any;
+		server = new NactServer("nact-cors-test", { loggerEnabled: false });
 		serverURL = server.serverRunningURL ?? "";
 	});
 
