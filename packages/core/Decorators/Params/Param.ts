@@ -9,7 +9,7 @@ const Param = createRouteParamDecorator(function (req: NactRequest) {
 	for (let i = 0; i < requestPathSchema.length; i++) {
 		const param = requestPathSchema[i];
 		const routeParam = route.schema[i];
-		if (routeParam?.name && typeof routeParam === "object") {
+		if (routeParam?.name && routeParam.parameter) {
 			routeParams[routeParam.name] = param;
 		}
 	}

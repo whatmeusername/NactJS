@@ -1,7 +1,7 @@
 import type { NactRoutes, RouteChild, NactLibraryConfig } from "./index";
 
 // TODO REPLACE LATER
-import { isUppercase, removeSlashes } from "../../utils/Other";
+import { removeSlashes } from "../../utils/Other";
 import { getControllerPath } from "../../../app";
 
 import {
@@ -11,6 +11,7 @@ import {
 	NactRouteData,
 	NactRouteMethodData,
 	getRouteData,
+	isUndefined,
 } from "../index";
 import type { NactLogger, NactRequest, NactRoute } from "../index";
 
@@ -34,9 +35,12 @@ const getRegexpPresets = (): regexpVariables => {
 const addPrefixToPath = (path: string | RegExp, prefix: string): string => {
 	if (path instanceof RegExp) {
 		const regexAsString = removeSlashes(path.toString());
-		return prefix + "/" + `(${regexAsString})`;
+		const res = (prefix + "/" + `(${regexAsString})`).toLowerCase();
+		return res;
 	}
-	return prefix + "/" + removeSlashes(path);
+	const isSlashOnly = path === "/";
+	const res = (prefix + (isSlashOnly ? "" : "/") + removeSlashes(path)).toLowerCase();
+	return res;
 };
 
 class NactRouteLibrary {
@@ -96,9 +100,10 @@ class NactRouteLibrary {
 								for (let i = 0; i < routeDataLength; i++) {
 									const routeParams = methodPathsData[i];
 									if (routeParams) {
-										controllerData.child[routeParams.path] = routeParams;
+										const routerName = routeParams.path + "#" + routeParams.method;
+										controllerData.child[routerName] = routeParams;
 										if (routeParams.absolute) {
-											controllerData.absolute.push(routeParams.path);
+											controllerData.absolute.push(routerName);
 										}
 									}
 								}
@@ -138,7 +143,8 @@ class NactRouteLibrary {
 		let routeMethod;
 
 		if (Router) {
-			if (Router.absolute.includes(absolutePath)) route = Router.child[absolutePath];
+			const nameWithMethod = absolutePath + "#" + req.method;
+			if (Router.absolute.includes(nameWithMethod)) route = Router.child[nameWithMethod];
 			else route = findRouteByParams(Router, { params: params, method: req.method });
 
 			if (route) {
@@ -195,7 +201,8 @@ class NactRouteLibrary {
 				const routeMetaData: RouteChild[] = methodData.data;
 				const paths = methodData.paths;
 				for (let i = 0; i < pathsLength; i++) {
-					const path = paths[i];
+					let path = paths[i];
+					path = isUndefined(path) ? "/" : path;
 					routeMetaData.push(getRouteData(path, methodData.method, descriptorKey));
 				}
 				Reflect.defineMetadata(ROUTE__OPTIONS, metadata, routeDescriptor, descriptorKey);

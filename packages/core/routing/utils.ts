@@ -1,4 +1,3 @@
-import type { NactRouteResponse } from "../../../app";
 import type {
 	NactRequest,
 	NactRoute,
@@ -7,7 +6,7 @@ import type {
 	RouteChild,
 	HTTPMethods,
 } from "../index";
-import { ROUTE__STATUS__CODE, ROUTE__CONTENT__TYPE, getNactLogger, isUndefined } from "../index";
+import { getNactLogger, isUndefined } from "../index";
 import { getRegexpPresets } from "./NactRouteLibary";
 import { removeSlashes } from "../../utils/Other";
 
@@ -23,15 +22,15 @@ const findRouteByParams = (
 	const absolutePath = lookfor.params.join("/");
 
 	for (let i = 0; i < Router.absolute.length; i++) {
-		const RouterAbsolutePath = Router.absolute[i];
-		if (absolutePath === RouterAbsolutePath) {
-			return Router.child[absolutePath];
+		const nameWithMethod = Router.absolute[i] + "#" + method;
+		if (absolutePath === nameWithMethod) {
+			return Router.child[nameWithMethod];
 		}
 	}
 
 	for (let i = 0; i < routeChilds.length; i++) {
 		const route = routeChilds[i];
-		if (!method || route.method === method) {
+		if (route.method === method) {
 			const mathcing = diffRouteSchemas(route, lookfor.params);
 			if (mathcing === "optional") {
 				optionalRoutes.push(route);
@@ -49,44 +48,46 @@ const diffRouteSchemas = (Route: RouteChild, lookup: ChildRouteSchema | string[]
 	let isOptional = false;
 	const s1 = Route.schema;
 
-	for (let i = 0; i < s1.length; i++) {
-		// TODO: CONTINUE ONLY WITH OPTIONAL ON
-		if (isPassed === "pass") {
-			const routePathSeg = s1[i];
+	if (s1.length >= lookup.length) {
+		for (let i = 0; i < s1.length; i++) {
+			// TODO: CONTINUE ONLY WITH OPTIONAL ON
+			if (isPassed === "pass" || isPassed === "optional") {
+				const routePathSeg = s1[i];
 
-			const lookupSeg: string | null = lookup[i]
-				? ((typeof lookup[i] === "string" ? lookup[i] : (lookup[i] as ChildRouteSchemaSegment).name) as string)
-				: null;
-			const routePathName = routePathSeg?.name;
+				const lookupSeg: string | null = lookup[i]
+					? ((typeof lookup[i] === "string" ? lookup[i] : (lookup[i] as ChildRouteSchemaSegment).name) as string)
+					: null;
+				const routePathName = routePathSeg?.name;
 
-			if (lookupSeg) {
-				if (routePathName === null && routePathSeg.regexp) {
-					isPassed = routePathSeg.regexp.test(lookupSeg) ? "pass" : "fail";
-				} else if (routePathSeg.parameter) {
-					if (routePathSeg?.regexp) {
+				if (lookupSeg) {
+					if (routePathName === null && routePathSeg.regexp) {
 						isPassed = routePathSeg.regexp.test(lookupSeg) ? "pass" : "fail";
+					} else if (routePathSeg.parameter) {
+						if (routePathSeg?.regexp) {
+							isPassed = routePathSeg.regexp.test(lookupSeg) ? "pass" : "fail";
+						}
+					} else if (routePathSeg?.name && !routePathSeg?.parameter && !routePathSeg?.regexp) {
+						isPassed = routePathName === lookupSeg ? "pass" : "fail";
+					} else if (routePathName === null && !routePathSeg.optional) {
+						isPassed = "fail";
 					}
-				} else if (routePathSeg?.name && !routePathSeg?.parameter && !routePathSeg?.regexp) {
-					isPassed = routePathName === lookupSeg ? "pass" : "fail";
-				} else if (routePathName === null && !routePathSeg.optional) {
-					isPassed = "fail";
-				}
 
-				if (routePathSeg?.optional) {
-					isOptional = true;
-				}
-			} else {
-				if (routePathSeg.optional) {
-					if (routePathSeg.parameter || routePathSeg.regexp) isPassed = "fail";
-					else {
-						isPassed = "optional";
+					if (routePathSeg?.optional) {
 						isOptional = true;
 					}
-				} else isPassed = "fail";
+				} else {
+					if (routePathSeg.optional) {
+						isPassed = "optional";
+						isOptional = true;
+					} else isPassed = "fail";
+				}
+				if (isPassed === "fail") break;
 			}
-			if (isPassed === "fail") break;
 		}
+	} else {
+		isPassed = "fail";
 	}
+
 	return isOptional && isPassed === "pass" ? "optional" : isPassed;
 };
 
@@ -103,8 +104,11 @@ const getRouteData = (path: string | RegExp, method: HTTPMethods | string, prope
 
 		dynamicIndexes = [];
 		isAbsolute = true;
-		pathSchema.forEach((seg) => {
-			if (seg?.parameter || seg?.regexp) {
+		pathSchema.forEach((seg, i) => {
+			if (seg?.parameter) {
+				isAbsolute = false;
+				dynamicIndexes.push(i);
+			} else if (seg?.regexp) {
 				isAbsolute = false;
 			}
 		});
@@ -183,6 +187,12 @@ const getPathSchema = (path: string): ChildRouteSchema => {
 		return [{ name: "/" }];
 	}
 
+	const RegexEmptyError = (seg: string): void => {
+		logger.error(
+			`Got empty regexp value from path segment ${seg} of path ${path}. Regexp should not contains empty values.`
+		);
+	};
+
 	const res: ChildRouteSchema = [];
 	const splited = path.split("/");
 	for (let i = 0; i < splited.length; i++) {
@@ -200,14 +210,15 @@ const getPathSchema = (path: string): ChildRouteSchema => {
 					data.name = name;
 					const regexp = extractRegexFromPath(seg, true) as RegExp;
 					if (regexp) data.regexp = regexp;
-				} else {
-					logger.error(
-						`One of parameters of path "${path}" dont contain name, parameter: "${seg}". Any path parameter name should contains atleast 1 character.`
-					);
+					else RegexEmptyError(seg);
 				}
 			} else if (isRegexPath(seg)) {
 				const regexp = extractRegexFromPath(seg, true) as RegExp;
-				if (regexp) data.regexp = regexp;
+				if (regexp && `${regexp}`.length > 0) {
+					data.regexp = regexp;
+				} else {
+					RegexEmptyError(seg);
+				}
 			} else if (isDynamicPath(seg)) {
 				data.parameter = true;
 				data.name = extractNameFromPath(seg) as string;
@@ -246,16 +257,16 @@ function getRouteParameters(params: any[], req: NactRequest): any | null {
 	return result;
 }
 
-function HandleRouteResponse(body: any, descriptor: TypedPropertyDescriptor<any>, req: NactRequest): NactRouteResponse {
-	const response: NactRouteResponse = { body: body };
-	const metaDataKeys = Reflect.getMetadataKeys(descriptor);
-	if (metaDataKeys.includes(ROUTE__STATUS__CODE)) {
-		req.status(Reflect.getMetadata(ROUTE__STATUS__CODE, descriptor));
-	}
-	if (metaDataKeys.includes(ROUTE__CONTENT__TYPE)) {
-		req.ContentType(Reflect.getMetadata(ROUTE__CONTENT__TYPE, descriptor));
-	}
-	return response;
-}
+// function HandleRouteResponse(body: any, descriptor: TypedPropertyDescriptor<any>, req: NactRequest): NactRouteResponse {
+// 	const response: NactRouteResponse = { body: body };
+// 	const metaDataKeys = Reflect.getMetadataKeys(descriptor);
+// 	if (metaDataKeys.includes(ROUTE__STATUS__CODE)) {
+// 		req.status(Reflect.getMetadata(ROUTE__STATUS__CODE, descriptor));
+// 	}
+// 	if (metaDataKeys.includes(ROUTE__CONTENT__TYPE)) {
+// 		req.ContentType(Reflect.getMetadata(ROUTE__CONTENT__TYPE, descriptor));
+// 	}
+// 	return response;
+// }
 
-export { getPathSchema, getRouteParameters, HandleRouteResponse, findRouteByParams, diffRouteSchemas, getRouteData };
+export { getPathSchema, getRouteParameters, findRouteByParams, diffRouteSchemas, getRouteData };

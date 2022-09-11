@@ -132,8 +132,10 @@ class NactServer {
 		if (runMiddlewares(this.middleware, request)) {
 			const routeMethod = this.RouteLibrary.getRouteMethodOr404(request);
 			if (routeMethod) {
-				response = routeMethod(request);
-				request.payload = response;
+				response = routeMethod(request) as any;
+				// TEMPORARY
+				response = { body: response };
+				request.payload = response?.body ? response.body : response;
 			}
 			return request.send();
 		}

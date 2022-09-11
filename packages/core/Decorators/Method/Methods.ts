@@ -1,6 +1,5 @@
 import type { NactRequest } from "../../index";
 import {
-	HandleRouteResponse,
 	getRouteParameters,
 	ROUTE__PARAMS,
 	ROUTE__PARAMETER__METADATA,
@@ -15,21 +14,30 @@ function createMethodDecorator(method: string, paths: (string | RegExp)[]) {
 		descriptor: TypedPropertyDescriptor<any>
 	): TypedPropertyDescriptor<any> {
 		const descriptorMethod = descriptor.value as (...args: any[]) => any;
-		const routesData: NactRouteData = { [method]: { paths: paths, data: [], method: method } };
+		let routesData: NactRouteData = Reflect.getMetadata(ROUTE__OPTIONS, target.constructor, propertyKey);
+		let firstInitzation = false;
+		if (!routesData) {
+			routesData = { [method]: { paths: paths, data: [], method: method } };
+			firstInitzation = true;
+		} else {
+			routesData[method] = { paths: paths, data: [], method: method };
+		}
 		Reflect.defineMetadata(ROUTE__OPTIONS, routesData, target.constructor, propertyKey);
 
-		descriptor.value = function (request: NactRequest) {
-			const routeMetadata = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, target.constructor, propertyKey);
-			let methodParamsVariables: any[] = [];
+		if (firstInitzation) {
+			descriptor.value = function (request: NactRequest) {
+				const routeMetadata = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, target.constructor, propertyKey);
+				let methodParamsVariables: any[] = [];
 
-			if (routeMetadata) {
-				const methodParams = routeMetadata[ROUTE__PARAMS] ?? [];
-				methodParamsVariables = getRouteParameters(methodParams, request);
-			}
+				if (routeMetadata) {
+					const methodParams = routeMetadata[ROUTE__PARAMS] ?? [];
+					methodParamsVariables = getRouteParameters(methodParams, request);
+				}
 
-			const response = descriptorMethod.apply(this, [...methodParamsVariables]);
-			return HandleRouteResponse(response, descriptor, request);
-		};
+				const response = descriptorMethod.apply(this, [...methodParamsVariables]);
+				return response;
+			};
+		}
 
 		return descriptor;
 	};
