@@ -1,11 +1,4 @@
-import {
-	getTransferModule,
-	createModule,
-	createProvider,
-	isInitializedClass,
-	NactTransferModule,
-	createNewTransferModule,
-} from "../../Module/index";
+import { createProvider, isInitializedClass, NactTransferModule, createNewTransferModule } from "../../Module/index";
 import type { ProviderData } from "../../Module/index";
 // import { Inject } from "../../Decorators/Inject/index";
 import NactServer from "../../../../app";
@@ -63,7 +56,7 @@ describe("Nact modyle system testing", () => {
 			expect(transferModule).toBeInstanceOf(NactTransferModule);
 		});
 		test("Creating new TransferModule return clear TransferModule", () => {
-			const transferModule = createNewTransferModule(server.transferModuleKey);
+			const transferModule = createNewTransferModule(server.getTransferModuleKey());
 			expect(transferModule.length).toBe(0);
 		});
 		test("Should apppend new module", () => {
@@ -73,7 +66,7 @@ describe("Nact modyle system testing", () => {
 			});
 			expect(transferModule.hasModule(moduleKey)).toBe(true);
 
-			createNewTransferModule(server.transferModuleKey);
+			createNewTransferModule(server.getTransferModuleKey());
 		});
 	});
 

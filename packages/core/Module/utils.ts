@@ -46,11 +46,11 @@ function isController(object: any): boolean {
 }
 
 function moduleHasImport(module: NactModule, importName: string): boolean {
-	return module.import.find((imp) => imp.name === importName) !== undefined;
+	return module.getImports().find((imp) => imp.name === importName) !== undefined;
 }
 
 function isAllProviderResolved(module: NactModule) {
-	const providers = module.providers;
+	const providers = module.getProviders();
 	for (let i = 0; i < providers.length; i++) {
 		const provider = providers[i];
 		if (provider.instance === undefined) return false;

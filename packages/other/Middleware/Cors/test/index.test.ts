@@ -5,7 +5,7 @@ import { NactRequest } from "../../../../core/nact-request/index";
 import { Get } from "../../../../core/Decorators/index";
 import { NactResponseTestingUtil } from "../../../../utils/TestingUtils";
 
-function createNactTestingUtil(NactRequest: NactRequest) {
+function createNactTestingUtil(NactRequest: NactRequest | undefined) {
 	return new NactResponseTestingUtil(NactRequest);
 }
 
@@ -27,34 +27,34 @@ describe("Cors middleware testing", () => {
 
 	beforeAll(async () => {
 		server = new NactServer("nact-cors-test", { loggerEnabled: false });
-		serverURL = server.serverRunningURL ?? "";
+		serverURL = server.getServerURL() ?? "";
 	});
 
 	beforeEach(() => {
 		server.resetConfiguration();
 	});
 
-	test("Should have cors headers", () => {
+	test("Should have cors headers", async () => {
 		server.useMiddleware(NactCors());
-		const injectedResponse = server.injectRequest({ method: "GET", headers: {}, url: serverURL });
+		const injectedResponse = await server.injectRequest({ method: "GET", headers: {}, url: serverURL });
 		createNactTestingUtil(injectedResponse).header("access-control-allow-origin", "*").done();
 	});
 
-	test("Should have self referencing origin", () => {
+	test("Should have self referencing origin", async () => {
 		//@ts-ignore checking if allowed origin will be request origin
 		server.useMiddleware(NactCors({ allowedOrigin: null }));
-		const injectedResponse = server.injectRequest({ method: "GET", headers: {}, url: serverURL });
-		createNactTestingUtil(injectedResponse).header("access-control-allow-origin", injectedResponse.origin).done();
+		const injectedResponse = await server.injectRequest({ method: "GET", headers: {}, url: serverURL });
+		createNactTestingUtil(injectedResponse).header("access-control-allow-origin", injectedResponse?.getOrigin()).done();
 	});
 
-	test("Should have multiple origins", () => {
+	test("Should have multiple origins", async () => {
 		//@ts-ignore checking if allowed origin will be request origin
 		server.useMiddleware(NactCors({ allowedOrigin: ["localhost", "127.0.0.1"] }));
-		const injectedResponse = server.injectRequest({ method: "GET", headers: {}, url: serverURL });
+		const injectedResponse = await server.injectRequest({ method: "GET", headers: {}, url: serverURL });
 		createNactTestingUtil(injectedResponse).header("access-control-allow-origin", "localhost,127.0.0.1").done();
 	});
 
-	test("sending preflight request", () => {
+	test("sending preflight request", async () => {
 		//@ts-ignore checking if allowed origin will be request origin
 		server.useMiddleware(
 			NactCors({
@@ -64,7 +64,7 @@ describe("Cors middleware testing", () => {
 				maxAge: 1000,
 			})
 		);
-		const injectedResponse = server.injectRequest({ method: "OPTIONS", headers: {}, url: serverURL });
+		const injectedResponse = await server.injectRequest({ method: "OPTIONS", headers: {}, url: serverURL });
 		createNactTestingUtil(injectedResponse)
 			.header("access-control-allow-origin", "localhost,127.0.0.1")
 			.header("access-control-allow-methods", "GET,POST")
@@ -74,10 +74,10 @@ describe("Cors middleware testing", () => {
 			.done();
 	});
 
-	test("If origin is false then no headers set", () => {
+	test("If origin is false then no headers set", async () => {
 		//@ts-ignore checking if allowed origin will be request origin
 		server.useMiddleware(NactCors({ allowedOrigin: false }));
-		const injectedResponse = server.injectRequest({ method: "GET", headers: {}, url: serverURL });
+		const injectedResponse = await server.injectRequest({ method: "GET", headers: {}, url: serverURL });
 
 		createNactTestingUtil(injectedResponse)
 			.header("access-control-allow-origin", undefined)
@@ -86,18 +86,14 @@ describe("Cors middleware testing", () => {
 			.done();
 	});
 
-	test("Set only non empty values from origin array", () => {
+	test("Set only non empty values from origin array", async () => {
 		server.useMiddleware(
 			NactCors({
 				allowedOrigin: ["     ", "localhost", "127.0.0.1", " "],
 			})
 		);
-		const injectedResponse = server.injectRequest({ method: "GET", headers: {}, url: serverURL });
+		const injectedResponse = await server.injectRequest({ method: "GET", headers: {}, url: serverURL });
 
 		createNactTestingUtil(injectedResponse).header("access-control-allow-origin", "localhost,127.0.0.1").done();
-	});
-
-	afterAll(() => {
-		server.server.close();
 	});
 });

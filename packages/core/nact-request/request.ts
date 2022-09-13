@@ -15,18 +15,18 @@ const SendFileDefaultOption = {
 };
 
 class NactRequest {
-	request: IncomingMessage;
-	response: ServerResponse;
+	private request: IncomingMessage;
+	private response: ServerResponse;
 	public readonly route: RouteChild | null;
 	public closed: boolean;
 
-	host: string | null;
-	origin: string;
-	method: HTTPMethods | string | null;
-	ip: string | null;
-	protocol: "http" | "https";
-	urldata: NactUrlParseQuery;
-	payload: any;
+	private host: string | null;
+	private origin: string;
+	private method: HTTPMethods | string | null;
+	private ip: string | null;
+	private protocol: "http" | "https";
+	private urldata: NactUrlParseQuery;
+	private payload: any;
 
 	protected __logger: NactLogger;
 
@@ -51,6 +51,53 @@ class NactRequest {
 		this.route = __route;
 	}
 
+	// ---- getters ----
+
+	getPayload(): any | undefined {
+		return this.payload;
+	}
+
+	getURLData(): NactUrlParseQuery {
+		return this.urldata;
+	}
+
+	getRequest(): IncomingMessage {
+		return this.request;
+	}
+
+	getResponse(): ServerResponse {
+		return this.response;
+	}
+
+	getProtocol(): string {
+		return this.protocol;
+	}
+
+	getMethod(): string | null {
+		return this.method;
+	}
+
+	getHost(): string | null {
+		return this.host;
+	}
+
+	getOrigin(): string | null {
+		return this.origin;
+	}
+
+	getIP(): string | null {
+		return this.ip;
+	}
+
+	// ---- Setters -----
+
+	setPayload(payload: any): any {
+		this.payload = payload;
+		return this.payload;
+	}
+
+	// ==== Utils =====
+
 	isClosed(): boolean {
 		return (this.response.writableEnded && this.closed) || this.closed;
 	}
@@ -71,11 +118,12 @@ class NactRequest {
 		return this.request.headers[name] ?? null;
 	}
 
-	header(header: string, value: boolean | number | string | string[]): NactRequest {
-		if (typeof value === "boolean") value = `${value}`;
-
-		if (!this.isClosed()) {
-			this.response?.setHeader(header, value);
+	header(header: string, value: boolean | number | string | null | string[]): NactRequest {
+		if (value !== null) {
+			if (typeof value === "boolean") value = `${value}`;
+			if (!this.isClosed()) {
+				this.response?.setHeader(header, value);
+			}
 		}
 		return this;
 	}

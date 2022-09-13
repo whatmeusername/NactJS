@@ -41,12 +41,6 @@ export interface serverSettings {
 	loggerEnabled?: boolean;
 }
 
-export interface NactRouteResponse {
-	body: any;
-	status?: number;
-	contentType?: string;
-}
-
 export const getControllerPath = (instance: any): string | null => {
 	return Reflect.getOwnMetadata(CONTROLLER_ROUTER__NAME, instance) ?? null;
 };
@@ -62,15 +56,15 @@ function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequ
 }
 
 class NactServer {
-	server: http.Server;
-	serverRunningURL: string | null;
-	serverPort: number | null;
-	RouteLibrary: NactRouteLibrary;
-	IPv4: string | null;
-	logger: NactLogger;
-	middleware: any; //NactMiddleware;
-	running: boolean;
-	transferModuleKey: string;
+	protected server: http.Server;
+	private serverRunningURL: string | null;
+	private serverPort: number | null;
+	protected RouteLibrary: NactRouteLibrary;
+	private IPv4: string | null;
+	private logger: NactLogger;
+	protected middleware: any; //NactMiddleware;
+	private running: boolean;
+	private transferModuleKey: string;
 
 	constructor(transferModuleKey?: string, serverSetting?: serverSettings) {
 		this.server = http.createServer(this.__RequestHandler);
@@ -84,6 +78,22 @@ class NactServer {
 		this.transferModuleKey = transferModuleKey ?? "0";
 
 		this.__initialize();
+	}
+
+	// ==== Getters =====
+	public getServerURL(): string | null {
+		if (this.running) {
+			return this.serverRunningURL;
+		}
+		return null;
+	}
+
+	public getServer(): http.Server {
+		return this.server;
+	}
+
+	public getTransferModuleKey(): string {
+		return this.transferModuleKey;
 	}
 
 	// ===== Initilization =====
@@ -127,30 +137,36 @@ class NactServer {
 		this.__executeRequest(request);
 	};
 
-	protected __executeRequest(request: NactRequest): any {
+	protected async __executeRequest(request: NactRequest): Promise<NactRequest | undefined> {
 		let response = undefined;
 		if (runMiddlewares(this.middleware, request)) {
 			const routeMethod = this.RouteLibrary.getRouteMethodOr404(request);
 			if (routeMethod) {
-				response = routeMethod(request) as any;
-				// TEMPORARY
-				response = { body: response };
-				request.payload = response?.body ? response.body : response;
+				response = new Promise((resolve, reject) => {
+					return resolve(routeMethod(request)) as any;
+				});
+				response
+					.then((res) => {
+						request.setPayload(res);
+					})
+					.catch((err) => {
+						// TODO exception
+					});
 			}
-			return request.send();
 		}
+		return request.send();
 	}
 
 	// ==== Public ====
 
-	getTransferModule(): NactTransferModule {
+	public getTransferModule(): NactTransferModule {
 		return getTransferModule(this.transferModuleKey);
 	}
-	get(): http.Server {
+	public get(): http.Server {
 		return this.server;
 	}
 
-	listen(port: number) {
+	public listen(port: number) {
 		if (!this.running) {
 			this.server.listen(port, () => {
 				this.running = true;
@@ -159,7 +175,7 @@ class NactServer {
 		}
 	}
 
-	useMiddleware(middleware: (req: NactRequest) => void) {
+	public useMiddleware(middleware: (req: NactRequest) => void) {
 		this.middleware.push(middleware);
 		this.logger.info(
 			`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`,
@@ -168,11 +184,11 @@ class NactServer {
 		return this;
 	}
 
-	resetConfiguration() {
+	public resetConfiguration() {
 		this.middleware = [];
 	}
 
-	async clearModuleConfiguration(
+	public async clearModuleConfiguration(
 		cb?: (transferModuleKey: string, transferModule: NactTransferModule) => void
 	): Promise<void> {
 		const transferModule = createNewTransferModule(this.transferModuleKey);
@@ -185,7 +201,7 @@ class NactServer {
 		this.RouteLibrary.registerController(controllers);
 	}
 
-	injectRequest(RequestData: InjectRequest) {
+	public async injectRequest(RequestData: InjectRequest) {
 		const URLdata = url.parse(RequestData.url);
 
 		function getHTTPRequest(): http.IncomingMessage {
@@ -247,7 +263,7 @@ class NactServer {
 		const response = new http.ServerResponse(request);
 		const nactRequest = new NactRequest(request, response);
 
-		return this.__executeRequest(nactRequest);
+		return await this.__executeRequest(nactRequest);
 	}
 }
 
@@ -257,13 +273,19 @@ class ApiController {
 
 	@Get("delete?", ":hello(^hi2$)")
 	Delete(@Param { hello }: any) {
-		console.log(hello);
+		console.log(hello, "--");
 		return { message: "bye" };
 	}
 
 	@Get("/hello/:id(num)?")
-	HelloWorld1() {
-		return { message: "Hello world 1" };
+	async HelloWorld1() {
+		const promise = new Promise((resolve) => {
+			throw new Error();
+			setTimeout(() => {
+				resolve({ message: "Hello world 1" });
+			}, 100);
+		});
+		return await promise;
 	}
 
 	@Get("/hello/:id(str)")
@@ -331,7 +353,7 @@ function App() {
 	app.listen(8000);
 }
 
-//App();
+App();
 
 export default NactServer;
 export { Controller };

@@ -27,7 +27,6 @@ import type {
 	NactModuleSettings,
 	NactCustomProviderSettings,
 	NactCustomProvider,
-	ParameterData,
 } from "./index";
 
 const NactLogger = getNactLogger();
@@ -69,10 +68,10 @@ class NactModule {
 	readonly __moduleSettings: NactModuleSettings | null;
 	__isInited: boolean;
 
-	import: any[];
-	export: ExportData[];
-	providers: ProviderData[];
-	controllers: ControllerData[];
+	private import: any[];
+	private export: ExportData[];
+	private providers: ProviderData[];
+	private controllers: ControllerData[];
 
 	constructor(settings: NactModuleSettings, transferModulesKey?: string) {
 		this.transferModulesKey = transferModulesKey ?? "0";
@@ -86,6 +85,22 @@ class NactModule {
 		this.export = [];
 	}
 
+	// ==== Getters ====
+	getExports(): ExportData[] {
+		return this.export;
+	}
+
+	getImports(): any[] {
+		return this.import;
+	}
+
+	getProviders(): ProviderData[] {
+		return this.providers;
+	}
+
+	getControllers(): ControllerData[] {
+		return this.controllers;
+	}
 	// ===== Initialization ====
 	initialize(settings?: NactModuleSettings) {
 		if (!this.__isInited) {
@@ -303,13 +318,15 @@ class NactModule {
 
 		this.providers.push(providerData);
 
-		getTransferModule(this.transferModulesKey).__providersLocator.push({
-			name: customProvider.providerName,
-			moduleKey: this.getModuleToken(),
-			key: providerData.uniqueToken,
-			resolved: isResolved,
-			instance: isResolved ? providerData.instance : null,
-		});
+		getTransferModule(this.transferModulesKey)
+			.getProviderLocator()
+			.push({
+				name: customProvider.providerName,
+				moduleKey: this.getModuleToken(),
+				key: providerData.uniqueToken,
+				resolved: isResolved,
+				instance: isResolved ? providerData.instance : null,
+			});
 
 		return providerData;
 	}
@@ -347,13 +364,15 @@ class NactModule {
 				setReadyForProivider(providerData, isResolved);
 				this.providers.push(providerData);
 
-				getTransferModule(this.transferModulesKey).__providersLocator.push({
-					name: provider.name,
-					moduleKey: this.getModuleToken(),
-					key: providerData.uniqueToken,
-					resolved: isResolved,
-					instance: isResolved ? providerData.instance : null,
-				});
+				getTransferModule(this.transferModulesKey)
+					.getProviderLocator()
+					.push({
+						name: provider.name,
+						moduleKey: this.getModuleToken(),
+						key: providerData.uniqueToken,
+						resolved: isResolved,
+						instance: isResolved ? providerData.instance : null,
+					});
 
 				return providerData;
 			}

@@ -9,7 +9,7 @@ const NactCorsDefaultSettings = {
 
 function NactCors(corsSettings: NactCorsSettings = NactCorsDefaultSettings): (request: NactRequest) => void {
 	function isOriginAllowed(request: NactRequest): boolean {
-		const requestOrigin = request.origin;
+		const requestOrigin = request.getOrigin();
 		const corsAllowedOrigin = corsSettings.allowedOrigin ?? "*";
 
 		if (isString(corsAllowedOrigin)) {
@@ -26,7 +26,7 @@ function NactCors(corsSettings: NactCorsSettings = NactCorsDefaultSettings): (re
 	}
 	function setCorsOrigins(request: NactRequest) {
 		let corsAllowedOrigin = corsSettings.allowedOrigin;
-		const requestOrigin = request.origin;
+		const requestOrigin = request.getOrigin();
 
 		if (corsAllowedOrigin === "*") {
 			request.header("Access-Control-Allow-Origin", "*");
@@ -89,7 +89,7 @@ function NactCors(corsSettings: NactCorsSettings = NactCorsDefaultSettings): (re
 	}
 
 	return function Cors(request: NactRequest) {
-		const requestMethod = request.method;
+		const requestMethod = request.getMethod();
 
 		if (corsSettings.allowedOrigin === false) return;
 

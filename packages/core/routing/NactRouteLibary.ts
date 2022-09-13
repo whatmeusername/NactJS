@@ -13,7 +13,8 @@ import {
 	getRouteData,
 	isUndefined,
 } from "../index";
-import type { NactLogger, NactRequest, NactRoute } from "../index";
+import type { NactRoute, PathWalkerParams } from "./interface";
+import type { NactLogger, NactRequest } from "../index";
 
 type ClassInst = { new (): any };
 type ObjectType<T> = { [K: string]: T };
@@ -133,31 +134,39 @@ class NactRouteLibrary {
 		});
 	}
 
+	protected walkRoute(Router: NactRoute, params: PathWalkerParams): RouteChild | null {
+		const absolutePath = params.path.join("/");
+		const method = params.method;
+		const nameWithMethod = absolutePath + "#" + method;
+		let route: RouteChild | null = null;
+
+		if (Router.absolute.includes(nameWithMethod)) route = Router.child[nameWithMethod];
+		else route = findRouteByParams(Router, params);
+
+		if (route) {
+			//@ts-ignore
+			return route;
+		}
+		return null;
+	}
+
 	getRouteMethodOr404(req: NactRequest): ((...args: any[]) => any[]) | undefined {
-		const params = req.urldata.params;
+		const params = req.getURLData().params;
 		const firstParam = params[0];
 		const Router = this.__routes[firstParam] ?? this.__routes["/"];
-
-		const absolutePath = params.join("/");
-		let route: RouteChild | null = null;
-		let routeMethod;
-
+		const method = req.getMethod();
 		if (Router) {
-			const nameWithMethod = absolutePath + "#" + req.method;
-			if (Router.absolute.includes(nameWithMethod)) route = Router.child[nameWithMethod];
-			else route = findRouteByParams(Router, { params: params, method: req.method });
-
+			const route = this.walkRoute(Router, { path: params, method: method });
 			if (route) {
 				req.__route = route;
 				//@ts-ignore
-				routeMethod = Router.self[route.name];
+				return Router.self[route.name];
 			} else {
 				req.status(404);
 			}
 		} else {
 			req.status(404);
 		}
-		return routeMethod;
 	}
 
 	getRouteMetadata(routeDescriptor: (...args: any[]) => any, descriptorKey: string): NactRouteData | undefined;

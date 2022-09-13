@@ -23,8 +23,6 @@ import {
 	ROOT_MODULE_TOKEN,
 } from "./index";
 
-import * as utils from "util";
-
 // const logger = getNactLogger();
 const NactLogger = getNactLogger();
 
@@ -65,7 +63,7 @@ class NactTransferModule {
 	protected __phase: "preparing" | "resolving" | "ready";
 	protected __asyncQueryCount: number;
 	readonly key: string;
-	__providersLocator: ProviderLocation[];
+	protected __providersLocator: ProviderLocation[];
 
 	constructor(key: string) {
 		this.__providersLocator = [];
@@ -81,6 +79,9 @@ class NactTransferModule {
 		return this.__modules.length;
 	}
 
+	getProviderLocator(): ProviderLocation[] {
+		return this.__providersLocator;
+	}
 	// ----- Public General ----
 
 	append(module: NactModule | NactModule[]): void {
@@ -282,7 +283,7 @@ class NactTransferModule {
 		const modules = this.__modules;
 		const controllers = [];
 		for (let i = 0; i < modules.length; i++) {
-			let moduleControllers = modules[i].controllers;
+			let moduleControllers = modules[i].getControllers();
 
 			if (instanceOnly) {
 				moduleControllers = moduleControllers.map((controller) => controller.instance);
@@ -293,9 +294,10 @@ class NactTransferModule {
 	}
 
 	protected __getExports(module: NactModule) {
-		if (module.export.length > 0) {
-			for (let i = 0; i < module.export.length; i++) {
-				const exportedProviderData = module.export[i];
+		const moduleExport = module.getExports();
+		if (moduleExport.length > 0) {
+			for (let i = 0; i < moduleExport.length; i++) {
+				const exportedProviderData = moduleExport[i];
 				if (exportedProviderData) {
 					this.__exports.push({
 						moduleKey: module.getModuleToken(),
@@ -315,24 +317,25 @@ class NactTransferModule {
 	}
 
 	protected __resolveModuleImports(module: NactModule, imports?: any[]): void {
-		const moduleImports = imports ?? module.__moduleSettings?.import ?? [];
-		if (moduleImports.length > 0) {
-			for (let i = 0; i < moduleImports.length; i++) {
-				const moduleImport = moduleImports[i];
-				const currentImportName = typeof moduleImport === "string" ? moduleImport : moduleImports[i].name;
+		const moduleSettingsImports = imports ?? module.__moduleSettings?.import ?? [];
+		if (moduleSettingsImports.length > 0) {
+			for (let i = 0; i < moduleSettingsImports.length; i++) {
+				const moduleImport = moduleSettingsImports[i];
+				const currentImportName = typeof moduleImport === "string" ? moduleImport : moduleSettingsImports[i].name;
 
 				if (this.__providerCanBeImported(currentImportName)) {
+					const moduleImports = module.getImports();
 					if (!moduleHasImport(module, currentImportName)) {
 						const importedProvider = this.__getProviderFromLocation(currentImportName);
 
 						if (importedProvider) {
-							module.import.push(importedProvider);
+							moduleImports.push(importedProvider);
 						} else {
 							const unresolvedProvider = this.getProviderFromLocationByName(currentImportName);
 							if (unresolvedProvider) {
 								const providerName = unresolvedProvider.name ?? unresolvedProvider.providerName;
 
-								module.import.push({
+								moduleImports.push({
 									name: providerName,
 									moduleKey: unresolvedProvider.moduleKey,
 									resolved: false,
@@ -343,10 +346,10 @@ class NactTransferModule {
 						}
 					} else {
 						const importedProvider = this.__getProviderFromLocation(currentImportName);
-						const importPosition = module.import.findIndex(
+						const importPosition = moduleImports.findIndex(
 							(imp) => imp.name === currentImportName && imp.resolved === false
 						);
-						if (importPosition !== -1) module.import[importPosition] = importedProvider;
+						if (importPosition !== -1) moduleImports[importPosition] = importedProvider;
 					}
 				}
 			}

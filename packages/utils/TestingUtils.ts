@@ -20,24 +20,30 @@ expect.extend({
 });
 
 class NactResponseTestingUtil {
-	NactRequest: NactRequest;
-	passing: boolean;
-	fallenAt: string;
-	constructor(NactRequest: NactRequest) {
-		this.NactRequest = NactRequest;
+	protected NactRequest: NactRequest;
+	protected passing: boolean;
+	protected fallenAt: string;
+	constructor(NactRequest: NactRequest | undefined) {
+		this.NactRequest = NactRequest as NactRequest;
 		this.passing = true;
 		this.fallenAt = "";
+
+		if (!this.NactRequest) {
+			this.passing = false;
+			this.done();
+		}
 	}
 
 	method(method: "GET" | "POST" | "DELETE" | "OPTIONS" | "PUT"): NactResponseTestingUtil {
 		if (this.passing) {
-			if (this.NactRequest.method !== method) this.passing = false;
+			const reqMethod = this.NactRequest.getMethod();
+			if (reqMethod !== method) this.passing = false;
 		}
 		return this;
 	}
 	status(status: number): NactResponseTestingUtil {
 		if (this.passing) {
-			const responseStatusCode = this.NactRequest.response?.statusCode;
+			const responseStatusCode = this.NactRequest.getResponse().statusCode;
 			if (responseStatusCode !== status) {
 				this.passing = false;
 				this.fallenAt = `Test failed at checking status code: expected status code ${status}, but got ${responseStatusCode}`;
@@ -58,9 +64,9 @@ class NactResponseTestingUtil {
 		return this;
 	}
 
-	header(Header: string, value: string | number | undefined): NactResponseTestingUtil {
+	header(Header: string, value: string | number | undefined | null): NactResponseTestingUtil {
 		if (this.passing) {
-			let header = this.NactRequest.response.getHeader(Header);
+			let header = this.NactRequest.getResponse().getHeader(Header);
 			if (Array.isArray(header)) header = header.join(",").trim();
 
 			if ((header === undefined && header !== value) || (header && header !== value)) {

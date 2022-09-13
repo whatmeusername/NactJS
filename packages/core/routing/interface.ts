@@ -43,7 +43,13 @@ interface RouteChild {
 	isRegex?: boolean;
 }
 
+interface PathWalkerParams {
+	method: HTTPMethods | string | null;
+	path: ChildRouteSchema | string[];
+}
+
 export type {
+	PathWalkerParams,
 	NactRoute,
 	RouteChild,
 	ChildRouteSchema,

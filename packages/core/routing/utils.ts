@@ -1,25 +1,16 @@
-import type {
-	NactRequest,
-	NactRoute,
-	ChildRouteSchema,
-	ChildRouteSchemaSegment,
-	RouteChild,
-	HTTPMethods,
-} from "../index";
+import type { NactRequest, HTTPMethods } from "../index";
+import type { PathWalkerParams, ChildRouteSchemaSegment, ChildRouteSchema, RouteChild, NactRoute } from "./interface";
 import { getNactLogger, isUndefined } from "../index";
 import { getRegexpPresets } from "./NactRouteLibary";
 import { removeSlashes } from "../../utils/Other";
 
 const logger = getNactLogger();
 
-const findRouteByParams = (
-	Router: NactRoute,
-	lookfor: { params: ChildRouteSchema | string[]; method: HTTPMethods | string | null }
-): RouteChild | null => {
+const findRouteByParams = (Router: NactRoute, lookfor: PathWalkerParams): RouteChild | null => {
 	const routeChilds = Object.values(Router.child);
 	const optionalRoutes = [];
 	const method = lookfor.method;
-	const absolutePath = lookfor.params.join("/");
+	const absolutePath = lookfor.path.join("/");
 
 	for (let i = 0; i < Router.absolute.length; i++) {
 		const nameWithMethod = Router.absolute[i] + "#" + method;
@@ -31,7 +22,7 @@ const findRouteByParams = (
 	for (let i = 0; i < routeChilds.length; i++) {
 		const route = routeChilds[i];
 		if (route.method === method) {
-			const mathcing = diffRouteSchemas(route, lookfor.params);
+			const mathcing = diffRouteSchemas(route, lookfor.path);
 			if (mathcing === "optional") {
 				optionalRoutes.push(route);
 			} else if (mathcing === "pass") return route;
