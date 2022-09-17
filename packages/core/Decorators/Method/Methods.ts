@@ -3,7 +3,7 @@ import {
 	getRouteParameters,
 	ROUTE__PARAMS,
 	ROUTE__PARAMETER__METADATA,
-	ROUTE__OPTIONS,
+	ROUTE__PATHS,
 	NactRouteData,
 } from "../../index";
 
@@ -14,7 +14,7 @@ function createMethodDecorator(method: string, paths: (string | RegExp)[]) {
 		descriptor: TypedPropertyDescriptor<any>
 	): TypedPropertyDescriptor<any> {
 		const descriptorMethod = descriptor.value as (...args: any[]) => any;
-		let routesData: NactRouteData = Reflect.getMetadata(ROUTE__OPTIONS, target.constructor, propertyKey);
+		let routesData: NactRouteData = Reflect.getMetadata(ROUTE__PATHS, target.constructor, propertyKey);
 		let firstInitzation = false;
 		if (!routesData) {
 			routesData = { [method]: { paths: paths, data: [], method: method } };
@@ -22,7 +22,7 @@ function createMethodDecorator(method: string, paths: (string | RegExp)[]) {
 		} else {
 			routesData[method] = { paths: paths, data: [], method: method };
 		}
-		Reflect.defineMetadata(ROUTE__OPTIONS, routesData, target.constructor, propertyKey);
+		Reflect.defineMetadata(ROUTE__PATHS, routesData, target.constructor, propertyKey);
 
 		if (firstInitzation) {
 			descriptor.value = function (request: NactRequest) {

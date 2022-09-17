@@ -1,4 +1,5 @@
 import { getNactLogger } from "../nact-logger/index";
+import CoreModule from "./CoreModule";
 
 import type {
 	NactModuleSettings,
@@ -15,7 +16,6 @@ import {
 	isModule,
 	isRootModule,
 	isCustomProvider,
-	isClassInstance,
 	mapCustomProviderArgs,
 	getConstructorParametersData,
 	unpackModuleArrays,
@@ -23,16 +23,26 @@ import {
 	ROOT_MODULE_TOKEN,
 } from "./index";
 
+import { isClassInstance } from "../shared/index";
+
 // const logger = getNactLogger();
 const NactLogger = getNactLogger();
 
 const transferModulesStorage: Map<string, NactTransferModule> = new Map<string, NactTransferModule>();
+
+function createNewTransferModule(key?: string): NactTransferModule {
+	const tmKey = key ?? "0";
+	const newInstance = new NactTransferModule(tmKey);
+	transferModulesStorage.set(tmKey, newInstance);
+	newInstance.append(new CoreModule(tmKey));
+	return newInstance;
+}
+
 function getTransferModule(key?: string): NactTransferModule {
 	const tmKey = key ?? "0";
 	let NactTransferModuleInstance = transferModulesStorage.get(tmKey);
 	if (!NactTransferModuleInstance) {
-		NactTransferModuleInstance = new NactTransferModule(tmKey);
-		transferModulesStorage.set(tmKey, NactTransferModuleInstance);
+		NactTransferModuleInstance = createNewTransferModule(tmKey);
 	}
 	return NactTransferModuleInstance;
 }
@@ -47,13 +57,6 @@ function createRootModule(settings: NactRootModuleSettings): NactModule {
 	settings.isRoot = true;
 	const newModule = new NactModule(settings);
 	return newModule;
-}
-
-function createNewTransferModule(key?: string): NactTransferModule {
-	const tmKey = key ?? "0";
-	const newInstance = new NactTransferModule(tmKey);
-	transferModulesStorage.set(tmKey, newInstance);
-	return newInstance;
 }
 
 class NactTransferModule {
@@ -81,6 +84,10 @@ class NactTransferModule {
 
 	getProviderLocator(): ProviderLocation[] {
 		return this.__providersLocator;
+	}
+
+	getCoreModule(): CoreModule | undefined {
+		return this.__modules.find((module) => module instanceof CoreModule) as CoreModule;
 	}
 	// ----- Public General ----
 

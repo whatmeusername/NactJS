@@ -2,19 +2,19 @@ import type { NactRoutes, RouteChild, NactLibraryConfig } from "./index";
 
 // TODO REPLACE LATER
 import { removeSlashes } from "../../utils/Other";
-import { getControllerPath } from "../../../app";
+import { findRouteByParams, getRouteData, getControllerPath } from "./utils";
 
 import {
 	getNactLogger,
-	findRouteByParams,
-	ROUTE__OPTIONS,
+	ROUTE__PATHS,
+	ROUTE__CONFIG,
 	NactRouteData,
 	NactRouteMethodData,
-	getRouteData,
 	isUndefined,
+	getTransferModule,
 } from "../index";
-import type { NactRoute, PathWalkerParams } from "./interface";
-import type { NactLogger, NactRequest } from "../index";
+import type { NactRouteWare, NactRoute, PathWalkerParams } from "./interface";
+import type { NactLogger, NactRequest, NactRouteConfig } from "../index";
 
 type ClassInst = { new (): any };
 type ObjectType<T> = { [K: string]: T };
@@ -43,6 +43,36 @@ const addPrefixToPath = (path: string | RegExp, prefix: string): string => {
 	const res = (prefix + (isSlashOnly ? "" : "/") + removeSlashes(path)).toLowerCase();
 	return res;
 };
+
+function handleRouteDataInjections(
+	controllerConstructor: (...args: any[]) => any,
+	descriptorKey: string
+): NactRouteConfig {
+	const routeConfig: NactRouteConfig = Reflect.getMetadata(ROUTE__CONFIG, controllerConstructor, descriptorKey);
+	if (routeConfig) {
+		const routeConfigValues: NactRouteWare[] = Object.values(routeConfig) as NactRouteWare[];
+		for (let i = 0; i < routeConfigValues.length; i++) {
+			const configItems = routeConfigValues[i]?.fns ?? [];
+			for (let j = 0; j < configItems.length; j++) {
+				const configItem = configItems[i];
+				if (typeof configItem === "object" && configItem?.inject === true) {
+					const tm = getTransferModule();
+					const coreModule = tm.getCoreModule();
+					if (coreModule) {
+						let existedProvider = coreModule.getProvider(configItem.instance);
+						if (!existedProvider) {
+							existedProvider = coreModule.appendProvider(configItem.instance);
+						}
+						if (existedProvider?.isReady) {
+							configItem.instance = existedProvider.instance;
+						}
+					}
+				}
+			}
+		}
+	}
+	return routeConfig;
+}
 
 class NactRouteLibrary {
 	protected __routes: NactRoutes;
@@ -88,17 +118,17 @@ class NactRouteLibrary {
 							let routesPaths = methodData.paths;
 
 							routesPaths = routesPaths.map((path) => addPrefixToPath(path, contorllerRoutePath));
-							const routeData = this.getOrSetMetadataForRoute(
+							const routePathData = this.getOrSetMetadataForRoute(
 								controllerConstructor,
 								descriptorKey,
 								methodData.method,
 								routesPaths as string[]
 							)?.data;
 
-							if (routeData) {
-								const routeDataLength = methodPathsData.length;
+							if (routePathData) {
+								const routePathDataLength = methodPathsData.length;
 
-								for (let i = 0; i < routeDataLength; i++) {
+								for (let i = 0; i < routePathDataLength; i++) {
 									const routeParams = methodPathsData[i];
 									if (routeParams) {
 										const routerName = routeParams.path + "#" + routeParams.method;
@@ -110,9 +140,9 @@ class NactRouteLibrary {
 								}
 
 								let message = descriptorKey;
-								if (routeDataLength > 1) {
+								if (routePathDataLength > 1) {
 									const pathsNames = methodPathsData.reduce((prev, next, i) => {
-										prev += `${next.path}${i !== routeDataLength - 1 ? ", " : ""}`;
+										prev += `${next.path}${i !== routePathDataLength - 1 ? ", " : ""}`;
 										return prev;
 									}, "");
 									message = `${descriptorKey} (path: ${pathsNames})`;
@@ -185,17 +215,17 @@ class NactRouteLibrary {
 		descriptorKey: string,
 		dataOnly?: boolean
 	): RouteChild[] | NactRouteData | undefined {
-		const metadata = Reflect.getMetadata(ROUTE__OPTIONS, routeDescriptor, descriptorKey);
+		const metadata = Reflect.getMetadata(ROUTE__PATHS, routeDescriptor, descriptorKey);
 		return dataOnly ? metadata?.data : metadata;
 	}
 
 	getOrSetMetadataForRoute(
-		routeDescriptor: (...args: any[]) => any,
+		controllerConstructor: (...args: any[]) => any,
 		descriptorKey: string,
 		method: string,
 		overidedPaths?: string[]
 	): NactRouteMethodData | undefined {
-		const metadata = this.getRouteMetadata(routeDescriptor, descriptorKey);
+		const metadata = this.getRouteMetadata(controllerConstructor, descriptorKey);
 		if (metadata) {
 			const methodData = metadata[method];
 
@@ -203,18 +233,23 @@ class NactRouteLibrary {
 				if (!overidedPaths && methodData.paths.length === methodData.data.length) {
 					return methodData;
 				}
+
 				const pathsLength = methodData.paths.length;
 				if (overidedPaths) {
 					methodData.paths = overidedPaths;
 				}
+
 				const routeMetaData: RouteChild[] = methodData.data;
 				const paths = methodData.paths;
 				for (let i = 0; i < pathsLength; i++) {
 					let path = paths[i];
 					path = isUndefined(path) ? "/" : path;
-					routeMetaData.push(getRouteData(path, methodData.method, descriptorKey));
+					const methodWrappers = handleRouteDataInjections(controllerConstructor, descriptorKey);
+					const routeData = getRouteData(path, methodData.method, descriptorKey);
+					routeData.ware = methodWrappers ?? {};
+					routeMetaData.push(routeData);
 				}
-				Reflect.defineMetadata(ROUTE__OPTIONS, metadata, routeDescriptor, descriptorKey);
+				Reflect.defineMetadata(ROUTE__PATHS, metadata, controllerConstructor, descriptorKey);
 				return methodData;
 			}
 		}

@@ -3,8 +3,6 @@ import { getNactLogger } from "../nact-logger/index";
 
 import {
 	getTransferModule,
-	isClassInstance,
-	isInitializedClass,
 	isInjectable,
 	isController,
 	isAllProviderResolved,
@@ -28,6 +26,8 @@ import type {
 	NactCustomProviderSettings,
 	NactCustomProvider,
 } from "./index";
+
+import { isInitializedClass, isClassInstance } from "../shared/index";
 
 const NactLogger = getNactLogger();
 
@@ -64,17 +64,17 @@ const setReadyForProivider = (provider: ProviderData, ready: boolean): ProviderD
 
 class NactModule {
 	protected readonly __moduleToken: string;
-	readonly transferModulesKey: string;
+	readonly transferModuleKey: string;
 	readonly __moduleSettings: NactModuleSettings | null;
 	__isInited: boolean;
 
-	private import: any[];
-	private export: ExportData[];
-	private providers: ProviderData[];
-	private controllers: ControllerData[];
+	protected import: any[];
+	protected export: ExportData[];
+	protected providers: ProviderData[];
+	protected controllers: ControllerData[];
 
-	constructor(settings: NactModuleSettings, transferModulesKey?: string) {
-		this.transferModulesKey = transferModulesKey ?? "0";
+	constructor(settings: NactModuleSettings, transferModuleKey?: string) {
+		this.transferModuleKey = transferModuleKey ?? "0";
 		this.__moduleToken = getUniqueToken(settings.isRoot ? ROOT_MODULE_TOKEN : MODULE_TOKEN);
 		this.__moduleSettings = settings;
 		this.__isInited = false;
@@ -136,9 +136,14 @@ class NactModule {
 
 	// ===== Providers Getters ====
 
-	getProvider(providerNameOrToken: string): ProviderData | undefined {
+	getProvider(
+		providerNameOrToken: string | { new (...args: any[]): any } | (new (...args: any[]) => any)
+	): ProviderData | undefined {
+		//prettier-ignore
+		providerNameOrToken = (typeof providerNameOrToken === "string" ? providerNameOrToken: isClassInstance(providerNameOrToken) ? providerNameOrToken.name : "") as string;
 		const isToken =
 			providerNameOrToken?.startsWith(PROVIDER_TOKEN) || providerNameOrToken?.startsWith(CUSTOM_PROVIDER_TOKEN);
+
 		if (isToken) {
 			return this.providers.find((provider) => provider.uniqueToken === providerNameOrToken);
 		}
@@ -318,7 +323,7 @@ class NactModule {
 
 		this.providers.push(providerData);
 
-		getTransferModule(this.transferModulesKey)
+		getTransferModule(this.transferModuleKey)
 			.getProviderLocator()
 			.push({
 				name: customProvider.providerName,
@@ -343,7 +348,7 @@ class NactModule {
 		}
 	}
 
-	protected __registerProvider = (provider: any | NactCustomProvider) => {
+	protected __registerProvider = (provider: any | NactCustomProvider): ProviderData | undefined => {
 		if (isInjectable(provider) && isClassInstance(provider)) {
 			if (!this.getProvider(provider.name)) {
 				const isInitialized = isInitializedClass(provider);
@@ -364,7 +369,7 @@ class NactModule {
 				setReadyForProivider(providerData, isResolved);
 				this.providers.push(providerData);
 
-				getTransferModule(this.transferModulesKey)
+				getTransferModule(this.transferModuleKey)
 					.getProviderLocator()
 					.push({
 						name: provider.name,
@@ -377,7 +382,7 @@ class NactModule {
 				return providerData;
 			}
 		} else if (isCustomProvider(provider)) {
-			this.__resolveCustomProvider(provider);
+			return this.__resolveCustomProvider(provider);
 		}
 	};
 
@@ -432,8 +437,8 @@ class NactModule {
 
 	hasProvider(providerName: string, shouldBeResolved?: boolean): boolean {
 		return (
-			(this.getProvider(providerName) ?? shouldBeResolved ? this.getProviderFromSettings(providerName) : undefined) !==
-			undefined
+			(this.getProvider(providerName) ??
+				(shouldBeResolved ? this.getProviderFromSettings(providerName) : undefined)) !== undefined
 		);
 	}
 

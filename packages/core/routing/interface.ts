@@ -16,6 +16,21 @@ interface NactRoute {
 	self: { new (): any };
 }
 
+interface NactRouteWare {
+	// processAt
+	fns: NactConfigItem[];
+}
+
+interface NactConfigItem {
+	name: string;
+	inject: boolean;
+	instance: { new (...args: any[]): any } | (new (...args: any[]) => any);
+}
+
+interface NactRouteConfig {
+	handlers?: NactRouteWare;
+}
+
 interface NactRouteMethodData {
 	method: HTTPMethods | string;
 	paths: (string | RegExp)[];
@@ -41,6 +56,7 @@ interface RouteChild {
 	schema: ChildRouteSchema;
 	dynamicIndexes: number[];
 	isRegex?: boolean;
+	ware: NactRouteConfig;
 }
 
 interface PathWalkerParams {
@@ -59,4 +75,7 @@ export type {
 	HTTPMethods,
 	NactRouteMethodData,
 	NactRouteData,
+	NactRouteConfig,
+	NactRouteWare,
+	NactConfigItem,
 };

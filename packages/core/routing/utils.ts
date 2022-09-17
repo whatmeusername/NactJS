@@ -1,5 +1,12 @@
-import type { NactRequest, HTTPMethods } from "../index";
-import type { PathWalkerParams, ChildRouteSchemaSegment, ChildRouteSchema, RouteChild, NactRoute } from "./interface";
+import { NactRequest, HTTPMethods, ROUTE__CONFIG, CONTROLLER_ROUTER__NAME } from "../index";
+import type {
+	PathWalkerParams,
+	ChildRouteSchemaSegment,
+	ChildRouteSchema,
+	RouteChild,
+	NactRoute,
+	NactRouteConfig,
+} from "./interface";
 import { getNactLogger, isUndefined } from "../index";
 import { getRegexpPresets } from "./NactRouteLibary";
 import { removeSlashes } from "../../utils/Other";
@@ -114,6 +121,7 @@ const getRouteData = (path: string | RegExp, method: HTTPMethods | string, prope
 		absolute: isAbsolute,
 		schema: pathSchema,
 		dynamicIndexes: dynamicIndexes,
+		ware: {},
 	};
 
 	if (isRegex) data.isRegex = true;
@@ -248,16 +256,25 @@ function getRouteParameters(params: any[], req: NactRequest): any | null {
 	return result;
 }
 
-// function HandleRouteResponse(body: any, descriptor: TypedPropertyDescriptor<any>, req: NactRequest): NactRouteResponse {
-// 	const response: NactRouteResponse = { body: body };
-// 	const metaDataKeys = Reflect.getMetadataKeys(descriptor);
-// 	if (metaDataKeys.includes(ROUTE__STATUS__CODE)) {
-// 		req.status(Reflect.getMetadata(ROUTE__STATUS__CODE, descriptor));
-// 	}
-// 	if (metaDataKeys.includes(ROUTE__CONTENT__TYPE)) {
-// 		req.ContentType(Reflect.getMetadata(ROUTE__CONTENT__TYPE, descriptor));
-// 	}
-// 	return response;
-// }
+function getRouteConfig(constructor: object, key: string): NactRouteConfig {
+	return (Reflect.getMetadata(ROUTE__CONFIG, constructor, key) ?? {}) as NactRouteConfig;
+}
 
-export { getPathSchema, getRouteParameters, findRouteByParams, diffRouteSchemas, getRouteData };
+function setRouteConfig(constructor: object, key: string, value: NactRouteConfig): void {
+	Reflect.defineMetadata(ROUTE__CONFIG, value, constructor, key);
+}
+
+const getControllerPath = (instance: any): string | null => {
+	return Reflect.getOwnMetadata(CONTROLLER_ROUTER__NAME, instance) ?? null;
+};
+
+export {
+	getPathSchema,
+	getRouteParameters,
+	findRouteByParams,
+	diffRouteSchemas,
+	getRouteData,
+	getRouteConfig,
+	setRouteConfig,
+	getControllerPath,
+};

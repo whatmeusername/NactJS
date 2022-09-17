@@ -17,7 +17,7 @@ const SendFileDefaultOption = {
 class NactRequest {
 	private request: IncomingMessage;
 	private response: ServerResponse;
-	public readonly route: RouteChild | null;
+	protected readonly route: RouteChild | null;
 	public closed: boolean;
 
 	private host: string | null;
@@ -52,6 +52,10 @@ class NactRequest {
 	}
 
 	// ---- getters ----
+
+	__getRoute() {
+		return this.route;
+	}
 
 	getPayload(): any | undefined {
 		return this.payload;

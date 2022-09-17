@@ -8,21 +8,12 @@ import type { ParameterData, ConstructorData, NactCustomProvider, ProviderData, 
 import { CUSTOM_PROVIDER_TOKEN, ROOT_MODULE_TOKEN, MODULE_TOKEN } from "./index";
 import { getNactLogger } from "../nact-logger/index";
 
-const NactLogger = getNactLogger();
+import { isClassInstance } from "../shared/index";
 
-function isClassInstance(object: any): boolean {
-	return (
-		object?.prototype?.constructor?.toString().substring(0, 5) === "class" ||
-		object?.constructor?.toString().substring(0, 5) === "class"
-	);
-}
+const NactLogger = getNactLogger();
 
 function isUndefined(value: any): boolean {
 	return value === undefined || value === null || (typeof value === "string" && value.trim() === "");
-}
-
-function isInitializedClass(object: any): boolean {
-	return object && isClassInstance(object) && typeof object === "object";
 }
 
 function isRootModule(module: NactModule): boolean {
@@ -172,8 +163,6 @@ export {
 	isUndefined,
 	isModule,
 	isRootModule,
-	isInitializedClass,
-	isClassInstance,
 	isInjectable,
 	isController,
 	isCustomProvider,
