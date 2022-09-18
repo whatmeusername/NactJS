@@ -26,6 +26,31 @@ function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequ
 	return true;
 }
 
+type NactMiddleware = (req: NactRequest) => any;
+
+class NactGlobalConfig {
+	private middleware: NactMiddleware[];
+	// handlers
+	// guards
+	// pipes
+	//afterware
+	constructor() {
+		this.middleware = [];
+	}
+
+	getGlobalMiddleware(): NactMiddleware[] {
+		return this.middleware;
+	}
+
+	addGlobalMiddleware(middleware: NactMiddleware | NactMiddleware[]): void {
+		if (Array.isArray(middleware)) {
+			this.middleware = [...this.middleware, ...middleware];
+		} else {
+			this.middleware.push(middleware);
+		}
+	}
+}
+
 class NactServer {
 	protected server: Server;
 	private serverRunningURL: string | null;
@@ -33,7 +58,7 @@ class NactServer {
 	protected RouteLibrary: NactRouteLibrary;
 	private IPv4: string | null;
 	private logger: NactLogger;
-	protected middleware: any; //NactMiddleware;
+	private GlobalConfig: NactGlobalConfig;
 	private running: boolean;
 	private transferModuleKey: string;
 
@@ -44,11 +69,22 @@ class NactServer {
 		this.logger = createSharedNactLogger({ isEnable: serverSetting?.loggerEnabled ?? true });
 		this.RouteLibrary = new NactRouteLibrary(undefined, { logger: this.logger });
 		this.IPv4 = null;
-		this.middleware = [];
+		this.GlobalConfig = new NactGlobalConfig();
 		this.running = false;
 		this.transferModuleKey = transferModuleKey ?? "0";
 
 		this.__initialize();
+	}
+
+	// ---- Global ----
+
+	public useMiddleware(middleware: (req: NactRequest) => void) {
+		this.GlobalConfig.addGlobalMiddleware(middleware);
+		this.logger.info(
+			`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`,
+			"MIDDLEWARE"
+		);
+		return this;
 	}
 
 	// ==== Getters =====
@@ -110,7 +146,7 @@ class NactServer {
 
 	protected async __executeRequest(request: NactRequest): Promise<NactRequest | undefined> {
 		let response = undefined;
-		if (runMiddlewares(this.middleware, request)) {
+		if (runMiddlewares(this.GlobalConfig.getGlobalMiddleware(), request)) {
 			const routeMethod = this.RouteLibrary.getRouteMethodOr404(request);
 			if (routeMethod) {
 				response = new Promise((resolve) => {
@@ -149,17 +185,8 @@ class NactServer {
 		}
 	}
 
-	public useMiddleware(middleware: (req: NactRequest) => void) {
-		this.middleware.push(middleware);
-		this.logger.info(
-			`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`,
-			"MIDDLEWARE"
-		);
-		return this;
-	}
-
 	public resetConfiguration() {
-		this.middleware = [];
+		this.GlobalConfig = new NactGlobalConfig();
 	}
 
 	public async clearModuleConfiguration(
