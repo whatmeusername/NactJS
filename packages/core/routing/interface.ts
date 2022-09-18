@@ -56,7 +56,6 @@ interface RouteChild {
 	schema: ChildRouteSchema;
 	dynamicIndexes: number[];
 	isRegex?: boolean;
-	ware: NactRouteConfig;
 }
 
 interface PathWalkerParams {

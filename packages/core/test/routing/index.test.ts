@@ -1,4 +1,4 @@
-import NactServer from "../../../../app";
+import { NactServer } from "../../application";
 import {
 	BaseController1,
 	OptionalController,

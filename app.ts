@@ -11,8 +11,19 @@ import {
 	TestServiceModule3,
 	TestServiceModuleV1,
 } from "./TemperaryFolder/TestServices";
-import { Controller } from "./packages/core/Decorators";
-import { NactServer } from "./packages/core";
+import { Controller, useHandler, Handler } from "./packages/core/Decorators";
+import { NactServer, HttpExpection, HttpExpectionHandler } from "./packages/core";
+
+class TestHttpExpection extends HttpExpection {
+	constructor() {
+		super(200, "test");
+	}
+}
+
+@Handler(TestHttpExpection)
+class TestHandler extends HttpExpectionHandler {
+	catch(expection: HttpExpection, ctx: any) {}
+}
 
 @Controller("api")
 class ApiController {
@@ -25,7 +36,8 @@ class ApiController {
 	}
 
 	@Get("/hello/:id(num)?")
-	async HelloWorld1() {
+	@useHandler(TestHandler)
+	async HelloWorld1(@Param { id }: { id: string }) {
 		const promise = new Promise((resolve) => {
 			throw new Error();
 			setTimeout(() => {

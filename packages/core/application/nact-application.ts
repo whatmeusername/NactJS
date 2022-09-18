@@ -13,6 +13,8 @@ import { NactRequest } from "../nact-request";
 import { createNewTransferModule, getTransferModule, NactTransferModule } from "../Module";
 
 import type { InjectRequest, serverSettings } from "./interface";
+import { ROUTE__CONFIG } from "../nact-constants";
+import { Reflector } from "../Reflector";
 
 function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequest: NactRequest): boolean {
 	for (let i = 0; i < middlewares.length; i++) {
@@ -112,16 +114,16 @@ class NactServer {
 			const routeMethod = this.RouteLibrary.getRouteMethodOr404(request);
 			if (routeMethod) {
 				response = new Promise((resolve) => {
-					return resolve(routeMethod(request)) as any;
+					const params = this.RouteLibrary.getRouteParams(request.getHandlerClass(), routeMethod.name, request);
+					return resolve(routeMethod(...params)) as any;
 				});
 				await response
 					.then((res) => {
 						request.setPayload(res);
 					})
 					.catch((err) => {
-						const route = request.__getRoute();
-						const handlers = route?.ware.handlers;
-						console.log(err.message, "error", route);
+						const handlers = Reflector.get(ROUTE__CONFIG, routeMethod);
+						console.log(handlers, "--");
 						// TODO exception
 					});
 			}

@@ -1,5 +1,4 @@
-import { Controller } from "../../../../app";
-import { Get, Post, Param } from "../../Decorators/index";
+import { Get, Post, Param, Controller } from "../../Decorators/";
 
 @Controller()
 class BaseController1 {

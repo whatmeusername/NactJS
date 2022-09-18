@@ -1,8 +1,8 @@
-import NactServer, { Controller } from "../../../../../app";
 import NactCors from "../middleware";
 import { createModule } from "../../../../core/Module/index";
 import { NactRequest } from "../../../../core/nact-request/index";
-import { Get } from "../../../../core/Decorators/index";
+import { Get, Controller } from "../../../../core/Decorators/";
+import { NactServer } from "../../../../core/application";
 import { NactResponseTestingUtil } from "../../../../utils/TestingUtils";
 
 function createNactTestingUtil(NactRequest: NactRequest | undefined) {

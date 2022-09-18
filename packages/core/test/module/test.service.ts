@@ -1,5 +1,5 @@
 import { Injectable, Inject } from "../../Decorators/Inject/index";
-import { isInitializedClass } from "../../Module/index";
+import { isInitializedClass } from "../../shared";
 
 @Injectable()
 class ServiceEmpty {

@@ -2,7 +2,7 @@ import type { NactRoutes, RouteChild, NactLibraryConfig } from "./index";
 
 // TODO REPLACE LATER
 import { removeSlashes } from "../../utils/Other";
-import { findRouteByParams, getRouteData, getControllerPath } from "./utils";
+import { findRouteByParams, getRouteData, getControllerPath, getRouteParameters } from "./utils";
 
 import {
 	getNactLogger,
@@ -12,6 +12,9 @@ import {
 	NactRouteMethodData,
 	isUndefined,
 	getTransferModule,
+	ROUTE__PARAMS,
+	ROUTE__PARAMETER__METADATA,
+	RouteHandlerData,
 } from "../index";
 import type { NactRouteWare, NactRoute, PathWalkerParams } from "./interface";
 import type { NactLogger, NactRequest, NactRouteConfig } from "../index";
@@ -69,6 +72,7 @@ function handleRouteDataInjections(
 					}
 				}
 			}
+			Reflect.defineMetadata(ROUTE__CONFIG, routeConfig, controllerConstructor, descriptorKey);
 		}
 	}
 	return routeConfig;
@@ -180,6 +184,21 @@ class NactRouteLibrary {
 		return null;
 	}
 
+	getRouteParams(rc: any, routeKEY: string, req: NactRequest): any[] {
+		const routeMetadata = Reflect.getMetadata(
+			ROUTE__PARAMETER__METADATA,
+			rc?.name !== undefined ? rc : rc.constructor,
+			routeKEY
+		);
+		let methodParamsVariables: any[] = [];
+
+		if (routeMetadata) {
+			const methodParams = routeMetadata[ROUTE__PARAMS] ?? [];
+			methodParamsVariables = getRouteParameters(methodParams, req);
+		}
+		return methodParamsVariables;
+	}
+
 	getRouteMethodOr404(req: NactRequest): ((...args: any[]) => any[]) | undefined {
 		const params = req.getURLData().params;
 		const firstParam = params[0];
@@ -188,9 +207,10 @@ class NactRouteLibrary {
 		if (Router) {
 			const route = this.walkRoute(Router, { path: params, method: method });
 			if (route) {
-				req.__route = route;
 				//@ts-ignore
-				return Router.self[route.name];
+				const method = Router.self[route.name];
+				req.__handler = new RouteHandlerData(Router.self, method, route);
+				return method;
 			} else {
 				req.status(404);
 			}
@@ -244,9 +264,8 @@ class NactRouteLibrary {
 				for (let i = 0; i < pathsLength; i++) {
 					let path = paths[i];
 					path = isUndefined(path) ? "/" : path;
-					const methodWrappers = handleRouteDataInjections(controllerConstructor, descriptorKey);
+					handleRouteDataInjections(controllerConstructor, descriptorKey);
 					const routeData = getRouteData(path, methodData.method, descriptorKey);
-					routeData.ware = methodWrappers ?? {};
 					routeMetaData.push(routeData);
 				}
 				Reflect.defineMetadata(ROUTE__PATHS, metadata, controllerConstructor, descriptorKey);

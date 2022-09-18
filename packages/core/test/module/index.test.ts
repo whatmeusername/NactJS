@@ -1,7 +1,8 @@
-import { createProvider, isInitializedClass, NactTransferModule, createNewTransferModule } from "../../Module/index";
+import { createProvider, NactTransferModule, createNewTransferModule } from "../../Module/index";
 import type { ProviderData } from "../../Module/index";
-// import { Inject } from "../../Decorators/Inject/index";
-import NactServer from "../../../../app";
+import { NactServer } from "../../application";
+
+import { isInitializedClass } from "../../shared";
 
 import { ServiceEmpty, AnotherEmptyService, ServiceA, ServiceB, ServiceC, ServiceAlias } from "./test.service";
 

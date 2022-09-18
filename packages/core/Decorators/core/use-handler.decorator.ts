@@ -1,7 +1,8 @@
 import { isClassInstance } from "../../shared/index";
-import { NactRouteWare, getRouteConfig, setRouteConfig } from "../../routing";
+import { NactRouteWare } from "../../routing";
 import { mapHandlers } from "../../expections/utils";
 import type { HttpExpectionHandler } from "../../expections/index";
+import { ROUTE__CONFIG } from "../../nact-constants";
 
 function useHandler(...handlers: ({ new (...args: any[]): HttpExpectionHandler } | HttpExpectionHandler)[]) {
 	return function (target: any, propertyKey?: string, descriptor?: PropertyDescriptor) {
@@ -10,14 +11,15 @@ function useHandler(...handlers: ({ new (...args: any[]): HttpExpectionHandler }
 			if (isClassInstance(target) && !descriptor) {
 				// TODO
 			} else if (isClassInstance(target) && typeof descriptor === "object") {
-				const routeConfig = getRouteConfig(target.constructor, propertyKey as string);
+				const routeConfig = Reflect.getMetadata(ROUTE__CONFIG, descriptor.value) ?? {};
 				routeHandlers = routeConfig["handlers"];
 				if (!routeHandlers) {
 					routeHandlers = { fns: [] } as NactRouteWare;
 					routeConfig["handlers"] = routeHandlers;
 				}
 				mapHandlers(handlers, routeHandlers.fns);
-				setRouteConfig(target.constructor, propertyKey as string, routeConfig);
+				Reflect.defineMetadata(ROUTE__CONFIG, routeConfig, descriptor.value);
+				return descriptor;
 			}
 		}
 	};

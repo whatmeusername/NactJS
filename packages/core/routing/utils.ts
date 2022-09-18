@@ -121,7 +121,6 @@ const getRouteData = (path: string | RegExp, method: HTTPMethods | string, prope
 		absolute: isAbsolute,
 		schema: pathSchema,
 		dynamicIndexes: dynamicIndexes,
-		ware: {},
 	};
 
 	if (isRegex) data.isRegex = true;
@@ -256,25 +255,8 @@ function getRouteParameters(params: any[], req: NactRequest): any | null {
 	return result;
 }
 
-function getRouteConfig(constructor: object, key: string): NactRouteConfig {
-	return (Reflect.getMetadata(ROUTE__CONFIG, constructor, key) ?? {}) as NactRouteConfig;
-}
-
-function setRouteConfig(constructor: object, key: string, value: NactRouteConfig): void {
-	Reflect.defineMetadata(ROUTE__CONFIG, value, constructor, key);
-}
-
 const getControllerPath = (instance: any): string | null => {
 	return Reflect.getOwnMetadata(CONTROLLER_ROUTER__NAME, instance) ?? null;
 };
 
-export {
-	getPathSchema,
-	getRouteParameters,
-	findRouteByParams,
-	diffRouteSchemas,
-	getRouteData,
-	getRouteConfig,
-	setRouteConfig,
-	getControllerPath,
-};
+export { getPathSchema, getRouteParameters, findRouteByParams, diffRouteSchemas, getRouteData, getControllerPath };

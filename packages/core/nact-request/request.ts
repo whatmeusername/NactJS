@@ -14,10 +14,34 @@ const SendFileDefaultOption = {
 	disableWarning: false,
 };
 
+class RouteHandlerData {
+	private routeClass: object;
+	private routeMethod: (...args: any[]) => any;
+	private routeData: RouteChild;
+
+	constructor(rc: object, rm: (...args: any[]) => any, rd: RouteChild) {
+		this.routeClass = rc;
+		this.routeMethod = rm;
+		this.routeData = rd;
+	}
+
+	getHandlerClass(): object {
+		return this.routeClass;
+	}
+
+	getHandler(): (...args: any[]) => any {
+		return this.routeMethod;
+	}
+
+	getRouteData(): RouteChild {
+		return this.routeData;
+	}
+}
+
 class NactRequest {
 	private request: IncomingMessage;
 	private response: ServerResponse;
-	protected readonly route: RouteChild | null;
+	protected readonly handler: RouteHandlerData | null;
 	public closed: boolean;
 
 	private host: string | null;
@@ -33,7 +57,7 @@ class NactRequest {
 	constructor(req: IncomingMessage, res: ServerResponse) {
 		this.request = req;
 		this.response = res;
-		this.route = null;
+		this.handler = null;
 		this.closed = false;
 		this.host = getHost(req);
 		this.origin = (this.getHeader("Origin") ?? getOrigin(req)) as string;
@@ -46,15 +70,23 @@ class NactRequest {
 		this.__logger = getNactLogger() as NactLogger;
 	}
 
-	set __route(__route: any) {
+	set __handler(__handler: RouteHandlerData) {
 		//@ts-ignore
-		this.route = __route;
+		this.handler = __handler;
 	}
 
 	// ---- getters ----
 
-	__getRoute() {
-		return this.route;
+	getHandlerClass(): object | undefined {
+		return this.handler?.getHandlerClass();
+	}
+
+	getHandler(): ((...args: any[]) => any) | undefined {
+		return this.handler?.getHandler();
+	}
+
+	getRouteData(): RouteChild | undefined {
+		return this.handler?.getRouteData();
 	}
 
 	getPayload(): any | undefined {
@@ -245,4 +277,4 @@ class NactRequest {
 	}
 }
 
-export { NactRequest };
+export { NactRequest, RouteHandlerData };

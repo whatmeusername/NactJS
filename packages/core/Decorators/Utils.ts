@@ -16,17 +16,6 @@ function setMetaData(target: any, routeKey: string, key: string, value: any): an
 	return currentMetaData;
 }
 
-function setParameterValue(paramKey: string) {
-	return function (target: any, key: string): any {
-		Reflect.defineMetadata(
-			ROUTE__PARAMETER__METADATA,
-			setMetaData(target, key, "params", paramKey),
-			target.constructor,
-			key
-		);
-	};
-}
-
 function createRouteParamDecorator(func: (req: NactRequest) => any) {
 	return function (target: any, key: string, index: any): any {
 		Reflect.defineMetadata(
