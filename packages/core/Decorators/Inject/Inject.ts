@@ -6,8 +6,8 @@ function createPropertyDecorator(func: (...args: any[]) => void): any {
 	};
 }
 
-const Inject = (token: string): any =>
-	createPropertyDecorator((target: any, key: string, index: any) => {
+function Inject(token: string): any {
+	return createPropertyDecorator((target: any, key: string, index: any) => {
 		const propToken = token || Reflect.getMetadata("design:type", target, key);
 
 		if (propToken) {
@@ -19,5 +19,5 @@ const Inject = (token: string): any =>
 			);
 		}
 	});
-
+}
 export { Inject };

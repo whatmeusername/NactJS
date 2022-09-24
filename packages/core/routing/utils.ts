@@ -4,25 +4,26 @@ import type {
 	ChildRouteSchemaSegment,
 	ChildRouteSchema,
 	RouteChild,
-	NactRoute,
 	NactRouteConfig,
 } from "./interface";
 import { getNactLogger, isUndefined } from "../index";
-import { getRegexpPresets } from "./NactRouteLibary";
+import { getRegexpPresets, NactRouter } from "./NactRouteLibary";
 import { removeSlashes } from "../../utils/Other";
+import { isClassInstance, isInitializedClass } from "../shared";
 
 const logger = getNactLogger();
 
-const findRouteByParams = (Router: NactRoute, lookfor: PathWalkerParams): RouteChild | null => {
-	const routeChilds = Object.values(Router.child);
+const findRouteByParams = (Router: NactRouter, lookfor: PathWalkerParams): RouteChild | null => {
+	const routeChilds = Object.values(Router.getChild());
+	const absolutePaths = Router.getAbsolute();
 	const optionalRoutes = [];
 	const method = lookfor.method;
 	const absolutePath = lookfor.path.join("/");
 
-	for (let i = 0; i < Router.absolute.length; i++) {
-		const nameWithMethod = Router.absolute[i] + "#" + method;
+	for (let i = 0; i < absolutePaths.length; i++) {
+		const nameWithMethod = absolutePaths[i] + "#" + method;
 		if (absolutePath === nameWithMethod) {
-			return Router.child[nameWithMethod];
+			return Router.getChild(nameWithMethod) as RouteChild;
 		}
 	}
 
@@ -259,4 +260,47 @@ const getControllerPath = (instance: any): string | null => {
 	return Reflect.getOwnMetadata(CONTROLLER_ROUTER__NAME, instance) ?? null;
 };
 
-export { getPathSchema, getRouteParameters, findRouteByParams, diffRouteSchemas, getRouteData, getControllerPath };
+function getRouteConfig(target: any, descriptorKey?: string): NactRouteConfig | undefined {
+	if (isInitializedClass(target)) {
+		if (descriptorKey) {
+			return Reflect.getMetadata(ROUTE__CONFIG, target[descriptorKey] ?? {});
+		} else {
+			const classProto = Object.getPrototypeOf(target).constructor;
+			return Reflect.getMetadata(ROUTE__CONFIG, classProto);
+		}
+	} else if (isClassInstance(target)) {
+		if (descriptorKey) {
+			return Reflect.getMetadata(ROUTE__CONFIG, target[descriptorKey]);
+		} else {
+			return Reflect.getMetadata(ROUTE__CONFIG, target);
+		}
+	}
+}
+
+function setRouteConfig(config: NactRouteConfig, target: any, descriptorKey?: string): void {
+	if (isInitializedClass(target)) {
+		if (descriptorKey) {
+			Reflect.defineMetadata(ROUTE__CONFIG, config, target[descriptorKey]);
+		} else {
+			const classProto = Object.getPrototypeOf(target).constructor;
+			Reflect.defineMetadata(ROUTE__CONFIG, config, classProto);
+		}
+	} else if (isClassInstance(target)) {
+		if (descriptorKey) {
+			Reflect.defineMetadata(ROUTE__CONFIG, config, target[descriptorKey]);
+		} else {
+			Reflect.defineMetadata(ROUTE__CONFIG, config, target);
+		}
+	}
+}
+
+export {
+	getPathSchema,
+	getRouteParameters,
+	findRouteByParams,
+	diffRouteSchemas,
+	getRouteData,
+	getControllerPath,
+	getRouteConfig,
+	setRouteConfig,
+};

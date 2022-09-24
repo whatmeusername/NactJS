@@ -56,10 +56,6 @@ describe("Nact modyle system testing", () => {
 			const transferModule = server.getTransferModule();
 			expect(transferModule).toBeInstanceOf(NactTransferModule);
 		});
-		test("Creating new TransferModule return clear TransferModule", () => {
-			const transferModule = createNewTransferModule(server.getTransferModuleKey());
-			expect(transferModule.length).toBe(0);
-		});
 		test("Should apppend new module", () => {
 			const transferModule = server.getTransferModule();
 			const moduleKey = transferModule.useModule({

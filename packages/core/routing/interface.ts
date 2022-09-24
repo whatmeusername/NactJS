@@ -1,5 +1,7 @@
 import type { NactLogger } from "../index";
 
+import type { NactRouter } from "../routing/index";
+
 type HTTPMethods = "GET" | "POST" | "HEAD" | "PUT" | "DELETE" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH";
 
 interface NactLibraryConfig {
@@ -7,13 +9,7 @@ interface NactLibraryConfig {
 }
 
 interface NactRoutes {
-	[K: string]: NactRoute;
-}
-
-interface NactRoute {
-	child: { [K: string]: RouteChild };
-	absolute: string[];
-	self: { new (): any };
+	[K: string]: NactRouter;
 }
 
 interface NactRouteWare {
@@ -65,7 +61,6 @@ interface PathWalkerParams {
 
 export type {
 	PathWalkerParams,
-	NactRoute,
 	RouteChild,
 	ChildRouteSchema,
 	ChildRouteSchemaSegment,

@@ -26,39 +26,40 @@ function NactCors(corsSettings: NactCorsSettings = NactCorsDefaultSettings): (re
 	}
 	function setCorsOrigins(request: NactRequest) {
 		let corsAllowedOrigin = corsSettings.allowedOrigin;
+		const response = request.getResponse();
 		const requestOrigin = request.getOrigin();
 
 		if (corsAllowedOrigin === "*") {
-			request.header("Access-Control-Allow-Origin", "*");
+			response.header("Access-Control-Allow-Origin", "*");
 		} else if (isString(corsAllowedOrigin)) {
-			request.header("Access-Control-Allow-Origin", corsAllowedOrigin as string);
-			request.header("Vary", "Origin");
+			response.header("Access-Control-Allow-Origin", corsAllowedOrigin as string);
+			response.header("Vary", "Origin");
 		} else if (Array.isArray(corsAllowedOrigin)) {
 			if (corsAllowedOrigin.length > 0) {
 				corsAllowedOrigin = corsAllowedOrigin.filter((value) => {
 					return isDefined(value);
 				});
 
-				request.header("Access-Control-Allow-Origin", corsAllowedOrigin);
-				request.header("Vary", "Origin");
+				response.header("Access-Control-Allow-Origin", corsAllowedOrigin);
+				response.header("Vary", "Origin");
 			}
 		} else {
 			const isAllowed = isOriginAllowed(request);
-			request.header("Access-Control-Allow-Origin", isAllowed ? requestOrigin : false);
-			request.header("Vary", "Origin");
+			response.header("Access-Control-Allow-Origin", isAllowed ? requestOrigin : false);
+			response.header("Vary", "Origin");
 		}
 	}
 
 	function setMethods(request: NactRequest) {
 		const allowedMethods = corsSettings.allowedMethods ?? [];
 		if (allowedMethods.length > 0) {
-			request.header("Access-Control-Allow-Methods", allowedMethods);
+			request.getResponse().header("Access-Control-Allow-Methods", allowedMethods);
 		}
 	}
 
 	function setCredentials(request: NactRequest) {
 		if (corsSettings.withCredentials) {
-			request.header("Access-Control-Allow-Credentials", true);
+			request.getResponse().header("Access-Control-Allow-Credentials", true);
 		}
 	}
 
@@ -67,24 +68,24 @@ function NactCors(corsSettings: NactCorsSettings = NactCorsDefaultSettings): (re
 
 		if (allowedHeaders.length === 0) {
 			allowedHeaders = request.getHeader("access-control-request-headers") ?? [];
-			request.header("Vary", "Access-Control-Request-Headers");
+			request.getResponse().header("Vary", "Access-Control-Request-Headers");
 		}
 		if (allowedHeaders && allowedHeaders.length > 0) {
-			request.header("Access-Control-Allow-Headers", allowedHeaders);
+			request.getResponse().header("Access-Control-Allow-Headers", allowedHeaders);
 		}
 	}
 
 	function setExposedHeaders(request: NactRequest) {
 		const exposedHeaders = corsSettings.exposedHeaders;
 		if (exposedHeaders) {
-			request.header("Access-Control-Expose-Headers", exposedHeaders);
+			request.getResponse().header("Access-Control-Expose-Headers", exposedHeaders);
 		}
 	}
 
 	function setMaxAge(request: NactRequest) {
 		const maxAge = corsSettings.maxAge;
 		if (maxAge !== undefined) {
-			request.header("Access-Control-Max-Age", maxAge);
+			request.getResponse().header("Access-Control-Max-Age", maxAge);
 		}
 	}
 
@@ -101,7 +102,7 @@ function NactCors(corsSettings: NactCorsSettings = NactCorsDefaultSettings): (re
 			setMaxAge(request);
 			setExposedHeaders(request);
 			if (!corsSettings.continuePreflight) {
-				request.status(200).length(0).end();
+				request.getResponse().status(200).length(0).end();
 			}
 		} else {
 			setCorsOrigins(request);

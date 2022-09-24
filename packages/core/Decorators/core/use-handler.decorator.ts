@@ -9,7 +9,15 @@ function useHandler(...handlers: ({ new (...args: any[]): HttpExpectionHandler }
 		if (handlers.length > 0) {
 			let routeHandlers: NactRouteWare | undefined = undefined;
 			if (isClassInstance(target) && !descriptor) {
-				// TODO
+				const routeConfig = Reflect.getMetadata(ROUTE__CONFIG, target) ?? {};
+				routeHandlers = routeConfig["handlers"];
+				if (!routeHandlers) {
+					routeHandlers = { fns: [] } as NactRouteWare;
+					routeConfig["handlers"] = routeHandlers;
+				}
+				mapHandlers(handlers, routeHandlers.fns);
+				Reflect.defineMetadata(ROUTE__CONFIG, routeConfig, target);
+				return target;
 			} else if (isClassInstance(target) && typeof descriptor === "object") {
 				const routeConfig = Reflect.getMetadata(ROUTE__CONFIG, descriptor.value) ?? {};
 				routeHandlers = routeConfig["handlers"];
