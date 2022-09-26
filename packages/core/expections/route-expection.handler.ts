@@ -1,5 +1,6 @@
 import { NactServer } from "../application";
 import { isController } from "../Module";
+import type { NactLogger } from "../nact-logger";
 import { NactRequest } from "../nact-request";
 import { getRouteConfig, NactRouteWare } from "../routing";
 import { isInitializedClass } from "../shared";
@@ -18,21 +19,27 @@ function mapHandlers(handlers: NactRouteWare | undefined): HttpExpectionHandler[
 	return res;
 }
 
+const ERROR_MESSAGES = {
+	IS_NOT_CONTROLLER: "Tried to assign controller only expection handler for non controller instance",
+};
+
 class ControllerExpectionsHandler {
 	private readonly router: object;
+	private readonly logger: NactLogger;
 	private handlers: HttpExpectionHandler[];
 	constructor(app: NactServer, RouterClass: object) {
 		this.handlers = [];
-		this.router = this.__setRouter(RouterClass);
+		this.logger = app.getLogger();
+		this.router = this.__setRouter(RouterClass) as object;
+
 		this.__getFilters(app);
 	}
 
-	private __setRouter(RouterClass: any): object | Error {
+	private __setRouter(RouterClass: any): object | void {
 		if (isController(RouterClass.constructor)) {
 			return RouterClass;
 		} else {
-			throw new Error();
-			// TODO
+			this.logger.error(ERROR_MESSAGES.IS_NOT_CONTROLLER);
 		}
 	}
 	private __getFilters(app: NactServer): void {
@@ -47,6 +54,7 @@ class ControllerExpectionsHandler {
 		const methodHandlers = getRouteConfig(routeMethod)?.handlers;
 		const instances: HttpExpectionHandler[] = mapHandlers(methodHandlers);
 		const orderedFilters: HttpExpectionHandler[] = [...instances, ...this.handlers];
+
 		for (let i = 0; i < orderedFilters.length; i++) {
 			const filter = orderedFilters[i];
 			if (filter.accept(expection, ctx)) return true;

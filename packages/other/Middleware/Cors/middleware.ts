@@ -67,7 +67,7 @@ function NactCors(corsSettings: NactCorsSettings = NactCorsDefaultSettings): (re
 		let allowedHeaders: string[] | string = corsSettings.allowedHeaders ?? [];
 
 		if (allowedHeaders.length === 0) {
-			allowedHeaders = request.getHeader("access-control-request-headers") ?? [];
+			allowedHeaders = request.getRequest().getHeader("access-control-request-headers") ?? [];
 			request.getResponse().header("Vary", "Access-Control-Request-Headers");
 		}
 		if (allowedHeaders && allowedHeaders.length > 0) {

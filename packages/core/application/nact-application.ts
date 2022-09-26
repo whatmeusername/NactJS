@@ -1,18 +1,18 @@
 import "reflect-metadata";
 
 import { createServer, IncomingMessage, RequestListener } from "http";
+import type { Server } from "http";
 import { parse } from "url";
 import { networkInterfaces } from "os";
 import { Socket } from "net";
 
-import type { Server } from "http";
-
 import { createSharedNactLogger, NactLogger } from "../nact-logger/logger";
 import { NactRouteLibrary } from "../routing/NactRouteLibary";
-import { NactRequest, NactServerResponse } from "../nact-request";
+import { NactRequest, NactServerResponse, NactIncomingMessage } from "../nact-request";
 import { createNewTransferModule, getTransferModule, NactTransferModule } from "../Module";
 
 import type { InjectRequest, serverSettings } from "./interface";
+import { HttpExpectionHandler, BaseHttpExpectionHandler } from "../expections";
 
 function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequest: NactRequest): boolean {
 	for (let i = 0; i < middlewares.length; i++) {
@@ -33,7 +33,7 @@ class NactGlobalConfig {
 	// guards
 	// pipes
 	//afterware
-	constructor() {
+	constructor(private readonly server: NactServer) {
 		this.middleware = [];
 		this.handlers = [];
 	}
@@ -42,8 +42,32 @@ class NactGlobalConfig {
 		return this.middleware;
 	}
 
-	getHandlers(): any[] {
+	getHandlers(): HttpExpectionHandler[];
+	getHandlers(name: string): HttpExpectionHandler | undefined;
+	getHandlers(name?: string): HttpExpectionHandler | HttpExpectionHandler[] | undefined {
+		if (name) {
+			return this.handlers.find((handler) => handler.name === name);
+		}
 		return this.handlers;
+	}
+
+	addGlobalHandler(
+		handler: (new (...args: any[]) => HttpExpectionHandler) | (new (...args: any[]) => HttpExpectionHandler)[],
+	) {
+		const coreModule = this.server.getTransferModule().getCoreModule();
+		if (Array.isArray(handler)) {
+			handler.forEach((handler) => {
+				const provider = coreModule?.appendProvider(handler);
+				if (provider?.instance) {
+					this.handlers = [...this.handlers, ...provider.instance];
+				}
+			});
+		} else {
+			const provider = coreModule?.appendProvider(handler);
+			if (provider?.instance) {
+				this.handlers.unshift(provider.instance);
+			}
+		}
 	}
 
 	addGlobalMiddleware(middleware: NactMiddleware | NactMiddleware[]): void {
@@ -67,13 +91,16 @@ class NactServer {
 	private transferModuleKey: string;
 
 	constructor(transferModuleKey?: string, serverSetting?: serverSettings) {
-		this.server = createServer({ ServerResponse: NactServerResponse }, this.__RequestHandler as RequestListener);
+		this.server = createServer(
+			{ ServerResponse: NactServerResponse, IncomingMessage: NactIncomingMessage },
+			this.__RequestHandler as RequestListener,
+		);
 		this.serverRunningURL = null;
 		this.serverPort = null;
 		this.logger = createSharedNactLogger({ isEnable: serverSetting?.loggerEnabled ?? true });
 		this.RouteLibrary = new NactRouteLibrary(this, undefined, { logger: this.logger });
 		this.IPv4 = null;
-		this.GlobalConfig = new NactGlobalConfig();
+		this.GlobalConfig = new NactGlobalConfig(this);
 		this.running = false;
 		this.transferModuleKey = transferModuleKey ?? "0";
 
@@ -88,10 +115,12 @@ class NactServer {
 
 	public useMiddleware(middleware: (req: NactRequest) => void) {
 		this.GlobalConfig.addGlobalMiddleware(middleware);
-		this.logger.info(
-			`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`,
-			"MIDDLEWARE"
-		);
+		this.logger.info(`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`, "MIDDLEWARE");
+		return this;
+	}
+
+	public useHandler(handler: new (...args: any[]) => HttpExpectionHandler) {
+		this.GlobalConfig.addGlobalHandler(handler);
 		return this;
 	}
 
@@ -107,12 +136,17 @@ class NactServer {
 		return this.server;
 	}
 
+	public getLogger(): NactLogger {
+		return this.logger;
+	}
+
 	public getTransferModuleKey(): string {
 		return this.transferModuleKey;
 	}
 
 	// ===== Initilization =====
 	protected async __initialize() {
+		this.useHandler(BaseHttpExpectionHandler);
 		await this.getTransferModule().initialize();
 
 		const controllers = this.getTransferModule().getModulesControllers(true);
@@ -147,13 +181,14 @@ class NactServer {
 		}
 	}
 
-	protected __RequestHandler = (req: IncomingMessage, res: NactServerResponse) => {
+	protected __RequestHandler = (req: NactIncomingMessage, res: NactServerResponse) => {
 		const request = new NactRequest(req, res);
 		this.__executeRequest(request);
 	};
 
 	protected async __executeRequest(request: NactRequest): Promise<NactRequest | undefined> {
 		let response = undefined;
+
 		if (runMiddlewares(this.GlobalConfig.getGlobalMiddleware(), request)) {
 			const routeMethodData = this.RouteLibrary.getRouteMethodOr404(request);
 			const routeMethod = routeMethodData?.method;
@@ -162,6 +197,7 @@ class NactServer {
 					const params = this.RouteLibrary.getRouteParams(request.getHandlerClass(), routeMethod.name, request);
 					return resolve(routeMethod(...params)) as any;
 				});
+
 				await response
 					.then((res) => {
 						request.setPayload(res);
@@ -172,6 +208,7 @@ class NactServer {
 					});
 			}
 		}
+
 		return request.send();
 	}
 
@@ -194,11 +231,11 @@ class NactServer {
 	}
 
 	public resetConfiguration() {
-		this.GlobalConfig = new NactGlobalConfig();
+		this.GlobalConfig = new NactGlobalConfig(this);
 	}
 
 	public async clearModuleConfiguration(
-		cb?: (transferModuleKey: string, transferModule: NactTransferModule) => void
+		cb?: (transferModuleKey: string, transferModule: NactTransferModule) => void,
 	): Promise<void> {
 		const transferModule = createNewTransferModule(this.transferModuleKey);
 		this.RouteLibrary.clear();
@@ -213,7 +250,7 @@ class NactServer {
 	public async injectRequest(RequestData: InjectRequest) {
 		const URLdata = parse(RequestData.url);
 
-		function getHTTPRequest(): IncomingMessage {
+		function getHTTPRequest(): NactIncomingMessage {
 			function setURL(req: IncomingMessage) {
 				req.url = URLdata.pathname + (URLdata.search ? URLdata.search : "");
 			}
@@ -256,7 +293,7 @@ class NactServer {
 				}
 			}
 
-			const rawRequest = new IncomingMessage(new Socket());
+			const rawRequest = new NactIncomingMessage(new Socket());
 
 			setURL(rawRequest);
 			setHost(rawRequest);

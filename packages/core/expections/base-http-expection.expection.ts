@@ -18,8 +18,8 @@ class HttpExpection extends Error {
 		return this.status;
 	}
 
-	getBody() {
-		return { status: this.status, message: this.message };
+	getBody(): { statusCode: number; message: string } {
+		return { statusCode: this.status, message: this.message };
 	}
 }
 

@@ -2,8 +2,8 @@
 
 //eslint-disable-next-line
 module.exports = {
-	trailingComma: "es5",
-	tabWidth: 2,
+	trailingComma: "all",
+	tabWidth: 1,
 	semi: true,
 	singleQuote: false,
 	printWidth: 120,

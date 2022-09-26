@@ -135,7 +135,7 @@ class NactRouteLibrary {
 								controller,
 								descriptorKey,
 								methodData.method,
-								routesPaths as string[]
+								routesPaths as string[],
 							)?.data;
 
 							if (routePathData) {
@@ -168,7 +168,7 @@ class NactRouteLibrary {
 						controllerConstructor.name
 					}" controller with routes methods with names: \n"${registeredRoutesMessage.join(", ")}". \nTotal: ${
 						registeredRoutesMessage.length
-					} routes`
+					} routes`,
 				);
 			}
 		});
@@ -193,7 +193,7 @@ class NactRouteLibrary {
 		const routeMetadata = Reflect.getMetadata(
 			ROUTE__PARAMETER__METADATA,
 			rc?.name !== undefined ? rc : rc.constructor,
-			routeKEY
+			routeKEY,
 		);
 		let methodParamsVariables: any[] = [];
 
@@ -206,9 +206,10 @@ class NactRouteLibrary {
 
 	getRouteMethodOr404(req: NactRequest): { method: (...args: any[]) => any[]; controller: NactRouter } | undefined {
 		const params = req.getURLData().params;
+		const method = req.getMethod();
+
 		const firstParam = params[0];
 		const Router = this.__routes[firstParam] ?? this.__routes["/"];
-		const method = req.getMethod();
 		if (Router) {
 			const route = this.walkRoute(Router, { path: params, method: method });
 			if (route) {
@@ -231,7 +232,7 @@ class NactRouteLibrary {
 	getRouteMetadata(
 		desc: (...args: any[]) => any,
 		key: string,
-		dataOnly?: boolean
+		dataOnly?: boolean,
 	): RouteChild[] | NactRouteData | undefined {
 		const metadata = Reflect.getMetadata(ROUTE__PATHS, desc, key);
 		return dataOnly ? metadata?.data : metadata;
@@ -241,7 +242,7 @@ class NactRouteLibrary {
 		controller: any,
 		descriptorKey: string,
 		method: string,
-		overidedPaths?: string[]
+		overidedPaths?: string[],
 	): NactRouteMethodData | undefined {
 		const metadata = this.getRouteMetadata(controller.constructor, descriptorKey);
 		if (metadata) {

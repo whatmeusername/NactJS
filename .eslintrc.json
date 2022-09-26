@@ -21,8 +21,11 @@
         "@typescript-eslint/ban-ts-comment": ["off"],
         "indent": [
             "error",
-            "tab"
+            "tab",
+            { "ignoredNodes": ["ConditionalExpression"]}
         ],
+        "no-mixed-spaces-and-tabs": ["warn", "smart-tabs"],
+
         "linebreak-style": [
             "error",
             "unix"

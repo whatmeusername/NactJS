@@ -4,15 +4,17 @@ import type { HttpExpectionHandler } from "./base-http-expection-handler.handler
 import type { HttpExpection } from "./base-http-expection.expection";
 
 function getNamesForExpectionHandler(
-	instances: ({ new (status: number, message: string): HttpExpection } | HttpExpection | string)[]
+	instances: ({ new (status: number, message: string): HttpExpection } | HttpExpection | string)[],
 ): string[] {
 	const res = [];
-	for (let i = 0; i < instances.length; i++) {
-		const instance = instances[i];
-		if (typeof instance === "string") {
-			res.push(instance);
-		} else if (isClassInstance(instance)) {
-			res.push(instance.name);
+	if (instances) {
+		for (let i = 0; i < instances.length; i++) {
+			const instance = instances[i];
+			if (typeof instance === "string") {
+				res.push(instance);
+			} else if (isClassInstance(instance)) {
+				res.push(instance.name);
+			}
 		}
 	}
 	return res;
@@ -20,7 +22,7 @@ function getNamesForExpectionHandler(
 
 function mapHandlers(
 	handlers: ({ new (): HttpExpectionHandler } | HttpExpectionHandler)[],
-	storeAt: NactConfigItem[]
+	storeAt: NactConfigItem[],
 ): NactConfigItem[] {
 	for (let i = 0; i < handlers.length; i++) {
 		const handler = handlers[i];

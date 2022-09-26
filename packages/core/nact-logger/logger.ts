@@ -78,7 +78,7 @@ class NactLogger {
 		this.__color(color, `${startsWith} ${message}`);
 	}
 
-	error(message: string): void {
+	error(message: string): Error {
 		const prefix = "[NACT ERROR]";
 		const color = `${this.errorColor}`;
 		const startsWith = [this.getTime(color), prefix].join(" ");

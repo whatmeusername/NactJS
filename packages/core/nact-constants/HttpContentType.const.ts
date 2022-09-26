@@ -1,4 +1,4 @@
-const HTTPContentType = {
+const HTTP_CONTENT_TYPE = {
 	json: "application/json",
 	text: "text/plain",
 	html: "text/html",
@@ -9,4 +9,4 @@ const HTTPContentType = {
 	webp: "image/webp",
 };
 
-export { HTTPContentType };
+export { HTTP_CONTENT_TYPE };

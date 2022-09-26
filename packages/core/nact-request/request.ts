@@ -1,5 +1,5 @@
-import http, { IncomingMessage, ServerResponse } from "http";
-import { HTTPStatusCodes, HTTPContentType, RouteChild, getNactLogger, NactLogger, HTTPMethods } from "../index";
+import { IncomingMessage, ServerResponse } from "http";
+import { HTTP_STATUS_CODES, RouteChild, getNactLogger, NactLogger, HTTPMethods } from "../index";
 
 import { mime } from "send";
 import fs from "fs";
@@ -8,7 +8,7 @@ import { parse } from "path";
 
 import { getRequestURLInfo, getProtocol, getRequestIP, getHost, getOrigin } from "../../utils/URLUtils";
 
-import { NactUrlParseQuery, NactSendFileOption, NactResponseBody } from "./index";
+import { NactUrlParseQuery, NactSendFileOption } from "./index";
 import { isInitializedClass } from "../shared";
 
 const SendFileDefaultOption = {
@@ -39,26 +39,22 @@ class RouteHandlerData {
 	}
 }
 
-function getMimeType(value: any) {
-	const valueType = typeof value;
-	if (valueType === "object") return HTTPContentType.json;
-	else if (valueType === "string" || valueType === "number") return HTTPContentType.text;
-	return HTTPContentType.text;
-}
-
 class NactServerResponse extends ServerResponse {
 	isSended(): boolean {
 		return this.writableEnded;
 	}
 
 	json(body: { [K: string]: any }): NactServerResponse {
-		const json = JSON.stringify(body);
-		this.contentType("application/json");
-		this.length(json.length);
-		return this.end(json);
+		if (!this.isSended()) {
+			const json = JSON.stringify(body);
+			this.contentType("application/json");
+			this.length(json.length);
+			return this.end(json);
+		}
+		return this;
 	}
 
-	__send(data?: any): NactServerResponse {
+	send(data?: any): NactServerResponse {
 		if (!this.isSended()) {
 			if (data) {
 				if (typeof data === "object") {
@@ -71,8 +67,7 @@ class NactServerResponse extends ServerResponse {
 					return this.end();
 				}
 			} else {
-				this.contentType(getMimeType(data));
-				this.length(data);
+				this.status(HTTP_STATUS_CODES.NO_CONTENT);
 			}
 
 			return this.end(data ? data : null);
@@ -110,8 +105,14 @@ class NactServerResponse extends ServerResponse {
 	}
 }
 
+class NactIncomingMessage extends IncomingMessage {
+	getHeader(name: string): string | string[] | null {
+		return this.headers[name] ?? null;
+	}
+}
+
 class NactRequest {
-	private request: IncomingMessage;
+	private request: NactIncomingMessage;
 	private response: NactServerResponse;
 	protected readonly handler: RouteHandlerData | null;
 
@@ -125,13 +126,13 @@ class NactRequest {
 
 	protected __logger: NactLogger;
 
-	constructor(req: IncomingMessage, res: NactServerResponse) {
+	constructor(req: NactIncomingMessage, res: NactServerResponse) {
 		this.request = req;
 		this.response = res;
 		this.handler = null;
 		this.host = getHost(req);
-		this.origin = (this.getHeader("Origin") ?? getOrigin(req)) as string;
-		this.method = (this.request.method as HTTPMethods) ?? null;
+		this.origin = (req.getHeader("Origin") ?? getOrigin(req)) as string;
+		this.method = (req.method as HTTPMethods) ?? null;
 		this.ip = getRequestIP(req);
 		this.protocol = getProtocol(req);
 		this.urldata = getRequestURLInfo(req);
@@ -167,7 +168,7 @@ class NactRequest {
 		return this.urldata;
 	}
 
-	getRequest(): IncomingMessage {
+	getRequest(): NactIncomingMessage {
 		return this.request;
 	}
 
@@ -193,10 +194,6 @@ class NactRequest {
 
 	getIP(): string | null {
 		return this.ip;
-	}
-
-	getHeader(name: string): string | string[] | null {
-		return this.request.headers[name] ?? null;
 	}
 
 	// ---- Setters -----
@@ -227,7 +224,9 @@ class NactRequest {
 	// }
 
 	send(): NactRequest {
-		this.getResponse().__send(this.payload);
+		if (!this.response.isSended()) {
+			this.response.send(this.payload);
+		}
 		return this;
 	}
 
@@ -248,7 +247,7 @@ class NactRequest {
 				//this.forbiddenRequest();
 				if (!options.disableWarning) {
 					this.__logger.info(
-						`Send file: "${fileProperties.base}" with size of ${stats.size} bytes exceeded limit of ${options?.maxSize} bytes. (Request was cancelled)`
+						`Send file: "${fileProperties.base}" with size of ${stats.size} bytes exceeded limit of ${options?.maxSize} bytes. (Request was cancelled)`,
 					);
 				}
 			}
@@ -262,7 +261,7 @@ class NactRequest {
 						this.__logger.info(
 							`Send file: "${fileProperties.base}" with extention "${fileExtension}" not permitted by allowed ${
 								Array.isArray(options.allowedExtensions) ? "extensions" : "extension"
-							} "${options.allowedExtensions}". (Request was cancelled)`
+							} "${options.allowedExtensions}". (Request was cancelled)`,
 						);
 					}
 				}
@@ -271,7 +270,7 @@ class NactRequest {
 			if (canStream) {
 				const fileStream = fs.createReadStream(path);
 				fileStream.on("open", () => {
-					response.status(HTTPStatusCodes.OK).contentType(type).length(stats.size);
+					response.status(HTTP_STATUS_CODES.OK).contentType(type).length(stats.size);
 					fileStream.pipe(this.response as ServerResponse);
 				});
 				fileStream.on("end", () => {
@@ -289,4 +288,4 @@ class NactRequest {
 	}
 }
 
-export { NactRequest, RouteHandlerData, NactServerResponse };
+export { NactRequest, RouteHandlerData, NactServerResponse, NactIncomingMessage };

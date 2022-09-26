@@ -16,13 +16,16 @@ import { NactServer, HttpExpection, HttpExpectionHandler } from "./packages/core
 
 class TestHttpExpection extends HttpExpection {
 	constructor() {
-		super(200, "test");
+		super(501, "got error");
 	}
 }
 
 @Handler(TestHttpExpection)
 class TestHandler extends HttpExpectionHandler {
-	catch(expection: HttpExpection, ctx: any) {}
+	catch(expection: HttpExpection, ctx: NactRequest) {
+		const response = ctx.getResponse();
+		response.json(expection.getBody());
+	}
 }
 
 @Controller("api")
@@ -32,7 +35,6 @@ class ApiController {
 
 	@Get("delete?", ":hello(^hi2$)")
 	Delete(@Param { hello }: any) {
-		console.log(hello, "--");
 		return { message: "bye" };
 	}
 

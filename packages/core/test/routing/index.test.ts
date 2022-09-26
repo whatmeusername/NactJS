@@ -39,7 +39,7 @@ describe("nact routing functionality", () => {
 				url: path,
 				method: "GET",
 			});
-			expect(res?.getPayload()?.data).toBe("method3");
+			expect(res?.getPayload()?.data).toBe("method2");
 		});
 		test("request to longer static path", async () => {
 			const path = "/test/2";
@@ -171,7 +171,7 @@ describe("nact routing functionality", () => {
 				url: path,
 				method: "GET",
 			});
-			expect(res?.getPayload()?.data).toBe("someuser3");
+			expect(res?.getPayload()?.data).toBe("someuser1");
 		});
 		test("request to path, that contains 1 optional parameter. Parameter not provided. Have repeats", async () => {
 			const path = "/optional/register/";
@@ -179,7 +179,7 @@ describe("nact routing functionality", () => {
 				url: path,
 				method: "GET",
 			});
-			expect(res?.getPayload()?.data).toBe("someuser4");
+			expect(res?.getPayload()?.data).toBe("someuser2");
 		});
 		test("request to complex path, that contains 2 optional parameter. Parameter provided.", async () => {
 			const path = "/optional/register/";
@@ -187,7 +187,7 @@ describe("nact routing functionality", () => {
 				url: path,
 				method: "GET",
 			});
-			expect(res?.getPayload()?.data).toBe("someuser4");
+			expect(res?.getPayload()?.data).toBe("someuser2");
 		});
 		test("request to complex path, that contains 2 optional parameter. Parameters provided.", async () => {
 			const path = "/optional/logout/20/user/admin";
@@ -219,7 +219,7 @@ describe("nact routing functionality", () => {
 				url: path,
 				method: "GET",
 			});
-			expect(res?.getPayload()?.data).toBe("success2");
+			expect(res?.getPayload()?.data).toBe("success1");
 		});
 		test("request to complex path, that contains 2 optional parameter. Parameter not provided. Have repeats", async () => {
 			const path = "/optional/exit/20/user";
@@ -227,7 +227,7 @@ describe("nact routing functionality", () => {
 				url: path,
 				method: "GET",
 			});
-			expect(res?.getPayload()?.data).toBe("fail2");
+			expect(res?.getPayload()?.data).toBe("fail1");
 		});
 		test("request to complex path, that contains 2 optional parameter. Parameters not provided. Have repeats", async () => {
 			const path = "/optional/exit/";
