@@ -1,20 +1,26 @@
 {
     "compilerOptions": {
-      "target": "ES2016",
+      "target": "es6",
       
       "experimentalDecorators": true,
       "emitDecoratorMetadata": true,
       
       "module": "commonjs",
       "resolveJsonModule": true,
-      "allowJs": true,
       "esModuleInterop": true,
       "forceConsistentCasingInFileNames": true,
       "strict": true,
       "allowSyntheticDefaultImports": true,
 
       "strictPropertyInitialization": false,
-      
+
+      "allowJs": true,
+      "declaration": true,
+      "declarationMap": true,
+      "emitDeclarationOnly": true,
+      "outDir": "dist",
+      "sourceMap": true,
+      "removeComments": true,
     },
     "exclude": [
       "./coverage/",

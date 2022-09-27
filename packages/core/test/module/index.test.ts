@@ -51,6 +51,20 @@ describe("Nact modyle system testing", () => {
 	afterAll(() => {
 		server.clearModuleConfiguration();
 	});
+
+	describe("Nact module providers listeners testing", () => {
+		test("should fire onInstanceReady listerner on instance ready if has", async () => {
+			await server.clearModuleConfiguration((key, tm) => {
+				tm.useModule({
+					providers: [ServiceEmpty],
+				});
+			});
+
+			const provider = getProviderFromTransfer(ServiceEmpty).instance;
+			expect(provider.someValue).toBeTruthy();
+		});
+	});
+
 	describe("Nact transfer module methods testing", () => {
 		test("Should return TransferModule even if no instance exists", () => {
 			const transferModule = server.getTransferModule();

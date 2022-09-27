@@ -25,6 +25,7 @@ interface ControllerData {
 	instance: any;
 	name: string;
 	constructorParams: ConstructorData;
+	isReady: boolean;
 }
 
 interface ExportData {

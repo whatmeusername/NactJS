@@ -1,0 +1,19 @@
+{
+  "name": "@nactjs/core",
+  "version": "1.0.0",
+  "description": "Nact - flexible, fast, nodejs web framework writted for TypeScript (core package)",
+  "main": "index.ts",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "npm run jest"
+  },
+  "repository": "git://github.com/whatmeusername/nactjs.git",
+  "author": "whatmeusername",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/whatmeusername/NactJS/issues"
+  },
+  "homepage": "https://github.com/whatmeusername/NactJS#readme"
+}

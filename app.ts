@@ -61,29 +61,18 @@ class ApiController {
 	}
 
 	@Get("/:yes/hello/:id?")
-	//eslint-disable-next-line
 	ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
 		return { test: "id" };
+	}
+
+	onInstanceReady() {
+		console.log("yes");
 	}
 }
 
 createModule({
-	controllers: [],
-	providers: [TestServiceModule1, TestServiceModule2, TestServiceModule3],
-	import: [TestService3],
-	export: [TestServiceModule2, TestServiceModule3],
-});
-
-createModule({
-	controllers: [],
-	providers: [TestServiceModuleV1],
-	import: [TestServiceModule3, TestService3],
-});
-
-createModule({
 	controllers: [ApiController],
 	providers: [
-		TestService,
 		createProvider({
 			providerName: "test",
 			useFactory: () => {
@@ -92,8 +81,6 @@ createModule({
 		}),
 		TestService3,
 	],
-	import: [TestServiceModule2],
-	export: [TestService3, "test"],
 });
 
 function App() {

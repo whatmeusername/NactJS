@@ -20,10 +20,6 @@ const colors = {
 type LoggerAvailableColors = keyof typeof colors;
 
 interface LoggerSettings {
-	log?: LoggerAvailableColors;
-	error?: LoggerAvailableColors;
-	warning?: LoggerAvailableColors;
-	info?: LoggerAvailableColors;
 	isEnable: boolean;
 }
 
@@ -41,17 +37,17 @@ function getNactLogger(): NactLogger {
 }
 
 class NactLogger {
-	logColor: LoggerAvailableColors;
-	warningColor: LoggerAvailableColors;
-	errorColor: LoggerAvailableColors;
-	infoColor: LoggerAvailableColors;
-	isEnable: boolean;
+	private logColor: LoggerAvailableColors;
+	private warningColor: LoggerAvailableColors;
+	private errorColor: LoggerAvailableColors;
+	private infoColor: LoggerAvailableColors;
+	private isEnable: boolean;
 
 	constructor(settings?: LoggerSettings) {
-		this.logColor = (settings?.log ?? colors.green) as LoggerAvailableColors;
-		this.warningColor = (settings?.warning ?? colors.yellow) as LoggerAvailableColors;
-		this.errorColor = (settings?.error ?? colors.red) as LoggerAvailableColors;
-		this.infoColor = (settings?.info ?? colors.blue) as LoggerAvailableColors;
+		this.logColor = colors.green as LoggerAvailableColors;
+		this.warningColor = colors.yellow as LoggerAvailableColors;
+		this.errorColor = colors.red as LoggerAvailableColors;
+		this.infoColor = colors.blue as LoggerAvailableColors;
 		this.isEnable = settings?.isEnable ?? true;
 	}
 

@@ -6,7 +6,8 @@ import type {
 	NactCustomProvider,
 	NactCustomProviderSettings,
 } from "../../../core/Module/index";
-import { createProvider, isClassInstance } from "../../../core/Module/index";
+import { isClassInstance } from "../../../core/shared";
+import { createProvider } from "../../../core/Module";
 import { Inject } from "../../../core/Decorators/Inject/index";
 
 @Entity()
@@ -85,7 +86,7 @@ class DatabaseStorage {
 
 	static addEntityByDataSource(
 		DataSource: DataSourceToken | string,
-		Entity: EntityClassOrSchema[] | EntityClassOrSchema
+		Entity: EntityClassOrSchema[] | EntityClassOrSchema,
 	): void {
 		const token = isDataSourceToken(DataSource) ? (DataSource as string) : getDataSourceToken(DataSource);
 
@@ -125,7 +126,7 @@ class DatabaseStorage {
 	}
 
 	static getDataSource(
-		DataSource?: DataSourceToken
+		DataSource?: DataSourceToken,
 	): string | undefined | string[] | { original: string; prefix: string } {
 		const datasourceTokens = this.datasourceTokensStorage.get("DATASOURCE__TOKENS") ?? [];
 
@@ -236,9 +237,7 @@ class TypeORMModule {
 					repository = dataSource.getTreeRepository(entity);
 				} else {
 					repository =
-						dataSource.options.type === "mongodb"
-							? dataSource.getMongoRepository(entity)
-							: dataSource.getRepository(entity);
+						dataSource.options.type === "mongodb" ? dataSource.getMongoRepository(entity) : dataSource.getRepository(entity);
 				}
 				return repository;
 			},

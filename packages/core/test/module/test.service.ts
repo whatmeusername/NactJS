@@ -3,10 +3,17 @@ import { isInitializedClass } from "../../shared";
 
 @Injectable()
 class ServiceEmpty {
-	constructor() {}
+	public someValue: boolean;
+	constructor() {
+		this.someValue = false;
+	}
 
 	getValue(): boolean {
 		return true;
+	}
+
+	onInstanceReady() {
+		this.someValue = true;
 	}
 }
 

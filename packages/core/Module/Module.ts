@@ -46,21 +46,20 @@ function getNameFromUseAlias(provider: NactCustomProvider): string | undefined {
 	}
 }
 
-const setReadyForProivider = (provider: ProviderData, ready: boolean): ProviderData => {
-	if (ready && !provider.isReady) {
-		provider.isReady = true;
-		if (isInitializedClass(provider.instance)) {
-			const onProviderReadyDescriptor = Object.getOwnPropertyDescriptor(
-				provider.instance.constructor.prototype,
-				"onProviderReady"
-			);
-			if (onProviderReadyDescriptor && typeof onProviderReadyDescriptor.value === "function") {
-				onProviderReadyDescriptor.value();
+function setReadyForData(data: ProviderData, ready: boolean): ProviderData;
+function setReadyForData(data: ControllerData, ready: boolean): ControllerData;
+function setReadyForData(data: ProviderData | ControllerData, ready: boolean): ProviderData | ControllerData {
+	if (ready && !data.isReady) {
+		data.isReady = true;
+		if (isInitializedClass(data.instance)) {
+			const onProviderReadyDescriptor: () => void | undefined = data?.instance["onInstanceReady"];
+			if (onProviderReadyDescriptor && typeof onProviderReadyDescriptor === "function") {
+				data.instance.onInstanceReady();
 			}
 		}
 	}
-	return provider;
-};
+	return data;
+}
 
 class NactModule {
 	protected readonly __moduleToken: string;
@@ -137,7 +136,7 @@ class NactModule {
 	// ===== Providers Getters ====
 
 	getProvider(
-		providerNameOrToken: string | { new (...args: any[]): any } | (new (...args: any[]) => any)
+		providerNameOrToken: string | { new (...args: any[]): any } | (new (...args: any[]) => any),
 	): ProviderData | undefined {
 		//prettier-ignore
 		providerNameOrToken = (typeof providerNameOrToken === "string" ? providerNameOrToken: isClassInstance(providerNameOrToken) ? providerNameOrToken.name : "") as string;
@@ -155,7 +154,7 @@ class NactModule {
 		if (providersFromSettings) {
 			return providersFromSettings.find(
 				(provider) =>
-					provider.name === providerName || (isCustomProvider(provider) && provider.providerName === providerName)
+					provider.name === providerName || (isCustomProvider(provider) && provider.providerName === providerName),
 			);
 		}
 	}
@@ -206,7 +205,7 @@ class NactModule {
 									constructorParams.push(undefined);
 								} else {
 									NactLogger.error(
-										`Nact is missing depending provider "${constructorParam.name} (index: ${constructorParam.index})" for provider "${providerName}". Its must be passed as provider or must imported from other module.`
+										`Nact is missing depending provider "${constructorParam.name} (index: ${constructorParam.index})" for provider "${providerName}". Its must be passed as provider or must imported from other module.`,
 									);
 								}
 							}
@@ -231,7 +230,7 @@ class NactModule {
 						if (injectArguments) {
 							const providerValue = initialProvider.useFactory(...injectArguments);
 							providerToUpdate.instance = providerValue;
-							setReadyForProivider(providerToUpdate, true);
+							setReadyForData(providerToUpdate, true);
 						}
 						return providerToUpdate;
 					} else if (initialProvider.willUse === "useAlias") {
@@ -239,7 +238,7 @@ class NactModule {
 						const referenceProvider = this.getProvider(referenceName);
 						if (referenceProvider && referenceProvider?.instance) {
 							providerToUpdate.instance = referenceProvider?.instance;
-							setReadyForProivider(providerToUpdate, true);
+							setReadyForData(providerToUpdate, true);
 							return providerToUpdate;
 						}
 					}
@@ -272,7 +271,7 @@ class NactModule {
 						customProvider.providerName
 					}" expected to get atleast ${useFactoryArgsLength} arguments, ${
 						injArgsLen > 0 ? `but got ${injArgsLen}` : "but no one was passed."
-					}`
+					}`,
 				);
 			}
 			if (!this.__isUsingUnresolvedImports(customProvider)) {
@@ -303,7 +302,7 @@ class NactModule {
 	Solutions:
 	- useAlias is not using provider instance from module import.
 	- provider that will be used for alias exists in module is not exists.
-					`
+					`,
 					);
 				}
 			}
@@ -317,7 +316,7 @@ class NactModule {
 			providerData.instance = providerValue;
 		}
 
-		setReadyForProivider(providerData, isResolved);
+		setReadyForData(providerData, isResolved);
 		providerData.name = customProvider.providerName;
 		providerData.uniqueToken = this.setUniqueToken(customProvider, PROVIDER_TOKEN) as string;
 
@@ -344,7 +343,7 @@ class NactModule {
 		}
 		if (constructorParams) {
 			provider.instance = new instance(...constructorParams);
-			setReadyForProivider(provider, true);
+			setReadyForData(provider, true);
 		}
 	}
 
@@ -366,7 +365,7 @@ class NactModule {
 					providerData.instance = provider;
 				}
 
-				setReadyForProivider(providerData, isResolved);
+				setReadyForData(providerData, isResolved);
 				this.providers.push(providerData);
 
 				getTransferModule(this.transferModuleKey)
@@ -397,7 +396,7 @@ class NactModule {
 						params.push(provider.instance);
 					} else {
 						NactLogger.error(
-							`Cannot resolve provider with name "${constructorParam.name} (index: ${constructorParam.index})" for contorller "${controllerData.name}". Nact not found provider`
+							`Cannot resolve provider with name "${constructorParam.name} (index: ${constructorParam.index})" for contorller "${controllerData.name}". Nact not found provider`,
 						);
 					}
 				}
@@ -412,6 +411,7 @@ class NactModule {
 				constructorParams = getControllerParams(controller);
 			}
 			controller.instance = new instance(...constructorParams);
+			setReadyForData(controller, true);
 		}
 
 		if (isController(controller)) {
@@ -423,12 +423,12 @@ class NactModule {
 				this.controllers.push(controllerData);
 			} else {
 				NactLogger.error(
-					`Controllers not allowed to be injectable as same time, but controller "${controller.name}" has injectable flag on.`
+					`Controllers not allowed to be injectable as same time, but controller "${controller.name}" has injectable flag on.`,
 				);
 			}
 		} else {
 			NactLogger.warning(
-				`Controller instance must have controller flag on, but got "${controller.name}" without it. (Instance has been passed)`
+				`Controller instance must have controller flag on, but got "${controller.name}" without it. (Instance has been passed)`,
 			);
 		}
 	}
@@ -437,8 +437,8 @@ class NactModule {
 
 	hasProvider(providerName: string, shouldBeResolved?: boolean): boolean {
 		return (
-			(this.getProvider(providerName) ??
-				(shouldBeResolved ? this.getProviderFromSettings(providerName) : undefined)) !== undefined
+			(this.getProvider(providerName) ?? (shouldBeResolved ? this.getProviderFromSettings(providerName) : undefined)) !==
+			undefined
 		);
 	}
 
@@ -524,14 +524,14 @@ function createProvider(settings: NactCustomProviderSettings): NactCustomProvide
 		!hasPropeperty("useAlias")
 	) {
 		NactLogger.error(
-			`Custom provider with name ${settings.providerName} should have useFactory or useValue or useClass or useAlias property provided, but none of them not provided`
+			`Custom provider with name ${settings.providerName} should have useFactory or useValue or useClass or useAlias property provided, but none of them not provided`,
 		);
 	}
 	if (hasPropeperty("useFactory") && typeof settings.useFactory !== "function") {
 		NactLogger.error(
 			`Custom providers useFactory property can only accept values with type of "function", but detected type "${typeof settings.useFactory}" in ${
 				settings.useFactory
-			}`
+			}`,
 		);
 	}
 
@@ -539,7 +539,7 @@ function createProvider(settings: NactCustomProviderSettings): NactCustomProvide
 		NactLogger.error(
 			`Custom providers useClass property can accept only classes, but detected value type of"${typeof settings.useClass}" in ${
 				settings.providerName
-			}`
+			}`,
 		);
 	}
 
@@ -548,7 +548,7 @@ function createProvider(settings: NactCustomProviderSettings): NactCustomProvide
 		NactLogger.error(
 			`Custom providers useAlias property can only classes or strings, but detected type "${typeof settings.useAlias}" in ${
 				settings.providerName
-			}`
+			}`,
 		);
 	}
 
