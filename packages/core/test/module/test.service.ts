@@ -1,4 +1,4 @@
-import { Injectable, Inject } from "../../Decorators/Inject/index";
+import { Injectable, Inject } from "../../decorators/Inject/index";
 import { isInitializedClass } from "../../shared";
 
 @Injectable()

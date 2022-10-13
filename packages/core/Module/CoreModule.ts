@@ -1,5 +1,5 @@
-import { setInjectableWatermark } from "../Decorators/index";
-import { NactModule } from "./Module";
+import { setInjectableWatermark } from "../decorators/index";
+import { NactModule } from "./module";
 import type { ProviderData } from "./interfaces";
 
 class CoreModule extends NactModule {

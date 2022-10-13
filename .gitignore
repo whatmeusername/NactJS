@@ -1,4 +1,7 @@
 
+#vscode
+.vscode
+
 # Other
 coverage/
 TemperaryFolder/
@@ -6,6 +9,11 @@ jest.config.txt/
 
 # dependencies
 node_modules/
+
+#bundle
+packages/**/dist
+packages/**/*.d.ts
+packages/**/*.js
 
 # misc
 .DS_Store

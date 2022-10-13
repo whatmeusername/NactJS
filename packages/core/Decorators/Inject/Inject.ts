@@ -15,7 +15,7 @@ function Inject(token: string): any {
 			Reflect.defineMetadata(
 				PROPERTY_DEPENDENCIES,
 				[...dependencies, { index: index, name: propToken, type: "inject" }],
-				target
+				target,
 			);
 		}
 	});

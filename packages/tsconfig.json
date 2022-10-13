@@ -1,0 +1,38 @@
+{
+    "compilerOptions": {
+      
+      
+
+      "declarationMap": true,
+      "emitDeclarationOnly": false,
+
+      "module": "commonjs",
+      "declaration": true,
+      "noImplicitAny": false,
+      "skipLibCheck": true,
+      "suppressImplicitAnyIndexErrors": true,
+      "noUnusedLocals": false,
+      "importHelpers": true,
+      "removeComments": false,
+      "noLib": false,
+      "emitDecoratorMetadata": true,
+      "experimentalDecorators": true,
+      "useUnknownInCatchVariables": false,
+      "target": "es6",
+      "sourceMap": false,
+      "allowJs": false,
+      "strict": true,
+      "strictNullChecks": false,
+      "resolveJsonModule": true,
+      "esModuleInterop": true,
+      "forceConsistentCasingInFileNames": true,
+      "allowSyntheticDefaultImports": true,
+      "strictPropertyInitialization": false,
+  
+    },
+    "exclude": [
+      "./coverage/",
+      "**/*.config.js",
+      "**/*.config.cjs"
+    ]
+  }

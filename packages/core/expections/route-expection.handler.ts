@@ -1,8 +1,9 @@
+import { NactRouteWare } from "../routing";
 import { NactServer } from "../application";
-import { isController } from "../Module";
+import { isController } from "../module";
 import type { NactLogger } from "../nact-logger";
 import { NactRequest } from "../nact-request";
-import { getRouteConfig, NactRouteWare } from "../routing";
+import { getRouteConfig } from "../routing/utils";
 import { isInitializedClass } from "../shared";
 import { HttpExpectionHandler } from "./base-http-expection-handler.handler";
 import { HttpExpection } from "./base-http-expection.expection";
@@ -44,6 +45,7 @@ class ControllerExpectionsHandler {
 	}
 	private __getFilters(app: NactServer): void {
 		const global = app.getGlobalConfig().getHandlers();
+
 		const controller = getRouteConfig(this.router);
 		const contorllerInstances: HttpExpectionHandler[] = mapHandlers(controller?.handlers);
 		this.handlers = [...contorllerInstances, ...global];

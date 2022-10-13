@@ -1,6 +1,6 @@
 import { HANDLER__ALLOWED__EXPECTIONS } from "../nact-constants/router.const";
 import type { NactRequest } from "../nact-request/request";
-import { Reflector } from "../Reflector";
+import { Reflector } from "../reflector";
 import { isObject } from "../shared";
 import { HttpExpection } from "./base-http-expection.expection";
 import { getNamesForExpectionHandler } from "./utils";
@@ -48,6 +48,7 @@ class BaseHttpExpectionHandler extends HttpExpectionHandler {
 	catch(expection: HttpExpection, ctx: NactRequest): boolean {
 		if (expection instanceof HttpExpection) {
 			const response = ctx.getResponse();
+
 			const resBody = expection.getBody();
 			if (isExpectionObject(resBody)) {
 				response.status(expection.getStatus());

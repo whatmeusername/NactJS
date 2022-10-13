@@ -1,4 +1,9 @@
-import { NactRequest } from "../core/nact-request/index";
+import type { NactServer } from "../../application";
+import type { ProviderData } from "../../module";
+import type { NactRequest } from "../../nact-request";
+import type { ServiceInstanceOrName } from "./interface";
+
+import { isInitializedClass } from "../../shared";
 
 expect.extend({
 	toEqualMessage(received, expected, custom) {
@@ -83,4 +88,41 @@ class NactResponseTestingUtil {
 	}
 }
 
-export { NactResponseTestingUtil };
+function ErrorStringIsNactError(string: string): boolean {
+	return string.includes("NACT ERROR");
+}
+
+function getValueFromTestInstance(
+	server: NactServer,
+	service: ServiceInstanceOrName[] | ServiceInstanceOrName,
+): boolean {
+	const services = Array.isArray(service) ? service : [service];
+	const transferModule = server.getTransferModule();
+
+	let result = false;
+	for (let i = 0; i < services.length; i++) {
+		const service = services[i];
+		const provider = transferModule.getProviderFromLocationByName(service);
+		if (provider && provider?.resolved) {
+			const instance = provider?.instance;
+
+			if (isInitializedClass(instance)) {
+				result = instance.getValue() ?? false;
+			} else {
+				result = instance === true;
+			}
+			if (!result) break;
+		}
+	}
+	return result;
+}
+
+function getProviderFromTransfer(
+	server: NactServer,
+	service: ServiceInstanceOrName | ServiceInstanceOrName,
+): ProviderData {
+	const transferModule = server.getTransferModule();
+	return transferModule.getProviderFromLocationByName(service);
+}
+
+export { NactResponseTestingUtil, ErrorStringIsNactError, getValueFromTestInstance, getProviderFromTransfer };

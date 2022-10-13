@@ -8,12 +8,11 @@ import type {
 } from "./interface";
 import { getNactLogger, isUndefined } from "../index";
 import { getRegexpPresets, NactRouter } from "./NactRouteLibary";
-import { removeSlashes } from "../../utils/Other";
-import { isClassInstance, isInitializedClass } from "../shared";
+import { isClassInstance, isInitializedClass, removeSlashes } from "../shared";
 
 const logger = getNactLogger();
 
-const findRouteByParams = (Router: NactRouter, lookfor: PathWalkerParams): RouteChild | null => {
+function findRouteByParams(Router: NactRouter, lookfor: PathWalkerParams): RouteChild | null {
 	const routeChilds = Object.values(Router.getChild());
 	const absolutePaths = Router.getAbsolute();
 	const optionalRoutes = [];
@@ -40,9 +39,9 @@ const findRouteByParams = (Router: NactRouter, lookfor: PathWalkerParams): Route
 		return optionalRoutes[optionalRoutes.length - 1];
 	}
 	return null;
-};
+}
 
-const diffRouteSchemas = (Route: RouteChild, lookup: ChildRouteSchema | string[]): "pass" | "optional" | "fail" => {
+function diffRouteSchemas(Route: RouteChild, lookup: ChildRouteSchema | string[]): "pass" | "optional" | "fail" {
 	let isPassed: "pass" | "optional" | "fail" = "pass";
 	let isOptional = false;
 	const s1 = Route.schema;
@@ -88,9 +87,9 @@ const diffRouteSchemas = (Route: RouteChild, lookup: ChildRouteSchema | string[]
 	}
 
 	return isOptional && isPassed === "pass" ? "optional" : isPassed;
-};
+}
 
-const getRouteData = (path: string | RegExp, method: HTTPMethods | string, propertyKey: string): RouteChild => {
+function getRouteData(path: string | RegExp, method: HTTPMethods | string, propertyKey: string): RouteChild {
 	let clearedPath = path.toString();
 	let pathSchema: ChildRouteSchema = [];
 	let isAbsolute = false;
@@ -127,41 +126,41 @@ const getRouteData = (path: string | RegExp, method: HTTPMethods | string, prope
 	if (isRegex) data.isRegex = true;
 
 	return data;
-};
+}
 
-const isOptionalPathSegment = (path: string): boolean => {
+function isOptionalPathSegment(path: string): boolean {
 	return path.endsWith("?");
-};
+}
 
-const isDynamicPath = (path: string): boolean => {
+function isDynamicPath(path: string): boolean {
 	const re = /^:{1}[A-Za-z0-9_.~-]+$/;
 	return re.test(path);
-};
+}
 
-const isDynamicWithRegex = (path: string): boolean => {
+function isDynamicWithRegex(path: string): boolean {
 	const re = /^:{1}?[A-Za-z0-9_.~-]+\(.*\)$/;
 	return re.test(path);
-};
+}
 
-const isRegexPath = (path: string): boolean => {
+function isRegexPath(path: string): boolean {
 	const re = /^\(.*\)$/;
 
 	return re.test(path);
-};
+}
 
-const isAllowedNameForURL = (path: string): boolean => {
+function isAllowedNameForURL(path: string): boolean {
 	const re = /^[A-Za-z0-9_.~-]*$/;
 	return re.test(path);
-};
+}
 
-const extractNameFromPath = (path: string): string | null => {
+function extractNameFromPath(path: string): string | null {
 	const re = /\b[A-Za-z0-9_.~-]+\b/;
 	//@ts-ignore Regex will return string or null, but not array
 	const res = path.match(re);
 	return res ? res[0] : null;
-};
+}
 
-const extractRegexFromPath = (path: string, convertToRegEXP?: boolean): string | RegExp | null => {
+function extractRegexFromPath(path: string, convertToRegEXP?: boolean): string | RegExp | null {
 	const checkPreset = (re: string): string => {
 		const RegexpPresets = getRegexpPresets().presets;
 		const preset = RegexpPresets[re] as string;
@@ -179,16 +178,16 @@ const extractRegexFromPath = (path: string, convertToRegEXP?: boolean): string |
 		return convertToRegEXP ? new RegExp(regexpString) : regexpString;
 	}
 	return null;
-};
+}
 
-const getPathSchema = (path: string): ChildRouteSchema => {
+function getPathSchema(path: string): ChildRouteSchema {
 	if (path === "/") {
 		return [{ name: "/" }];
 	}
 
 	const RegexEmptyError = (seg: string): void => {
 		logger.error(
-			`Got empty regexp value from path segment ${seg} of path ${path}. Regexp should not contains empty values.`
+			`Got empty regexp value from path segment ${seg} of path ${path}. Regexp should not contains empty values.`,
 		);
 	};
 
@@ -243,7 +242,7 @@ const getPathSchema = (path: string): ChildRouteSchema => {
 		}
 	}
 	return res;
-};
+}
 
 function getRouteParameters(params: any[], req: NactRequest): any | null {
 	const result = [];
@@ -256,9 +255,9 @@ function getRouteParameters(params: any[], req: NactRequest): any | null {
 	return result;
 }
 
-const getControllerPath = (instance: any): string | null => {
+function getControllerPath(instance: any): string | null {
 	return Reflect.getOwnMetadata(CONTROLLER_ROUTER__NAME, instance) ?? null;
-};
+}
 
 function getRouteConfig(target: any, descriptorKey?: string): NactRouteConfig | undefined {
 	if (isInitializedClass(target)) {

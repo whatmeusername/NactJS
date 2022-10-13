@@ -1,7 +1,7 @@
 {
   "name": "@nactjs/core",
-  "version": "1.0.0",
-  "description": "Nact - flexible, fast, nodejs web framework writted for TypeScript (core package)",
+  "version": "1.0.7",
+  "description": "Nact - (WIP)",
   "main": "index.ts",
   "directories": {
     "test": "test"

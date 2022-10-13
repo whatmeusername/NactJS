@@ -1,5 +1,5 @@
 import type { NactRequest } from "../../../core/nact-request/index";
-import { isString, isDefined } from "../../../utils/Other";
+import { isString, isDefined } from "../../../core/shared";
 import { NactCorsSettings } from "./index";
 
 const NactCorsDefaultSettings = {

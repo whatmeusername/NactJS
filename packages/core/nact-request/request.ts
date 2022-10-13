@@ -6,31 +6,55 @@ import fs from "fs";
 
 import { parse } from "path";
 
-import { getRequestURLInfo, getProtocol, getRequestIP, getHost, getOrigin } from "../../utils/URLUtils";
+import { getRequestURLInfo, getProtocol, getRequestIP, getHost, getOrigin } from "./utils";
 
 import { NactUrlParseQuery, NactSendFileOption } from "./index";
 import { isInitializedClass } from "../shared";
+import { Socket } from "net";
 
 const SendFileDefaultOption = {
 	disableWarning: false,
 };
 
 class RouteHandlerData {
+	private ControllerInstance: new (...args: any) => any;
 	private routeClass: object;
-	private routeMethod: (...args: any[]) => any;
+	private routeMethod: ((...args: any[]) => any) | undefined;
 	private routeData: RouteChild;
+	private routeArgs: any[];
 
-	constructor(rc: object, rm: (...args: any[]) => any, rd: RouteChild) {
-		this.routeClass = isInitializedClass(rc) ? rc.constructor : rc;
+	constructor(rc: new (...args: any) => any, rm: ((...args: any[]) => any) | undefined, rd: RouteChild) {
+		this.ControllerInstance = rc;
+		this.routeClass = rc.constructor;
 		this.routeMethod = rm;
 		this.routeData = rd;
+		this.routeArgs = [];
+	}
+
+	set __routeMethod(value: (...args: any[]) => any) {
+		this.routeMethod = value;
+	}
+
+	set __routeArgs(value: any[]) {
+		this.routeArgs = value;
+	}
+
+	callMethod(): any {
+		if (this.routeMethod) {
+			return this.routeMethod.apply(this.ControllerInstance, this.routeArgs);
+		}
+		return undefined;
+	}
+
+	getArgs(): any[] {
+		return this.routeArgs;
 	}
 
 	getHandlerClass(): object {
 		return this.routeClass;
 	}
 
-	getHandler(): (...args: any[]) => any {
+	getHandler(): ((...args: any[]) => any) | undefined {
 		return this.routeMethod;
 	}
 
@@ -47,9 +71,10 @@ class NactServerResponse extends ServerResponse {
 	json(body: { [K: string]: any }): NactServerResponse {
 		if (!this.isSended()) {
 			const json = JSON.stringify(body);
-			this.contentType("application/json");
-			this.length(json.length);
-			return this.end(json);
+			this.setHeader("Content-Type", "application/json; charset=utf-8");
+			this.length(Buffer.from(json).byteLength);
+
+			return this.end(json, "utf8");
 		}
 		return this;
 	}
@@ -61,7 +86,7 @@ class NactServerResponse extends ServerResponse {
 					return this.json(data);
 				} else {
 					const stringifyData = JSON.stringify(data);
-					this.length(stringifyData.length);
+					this.length(Buffer.from(stringifyData).byteLength);
 					this.write(stringifyData);
 
 					return this.end();
@@ -106,6 +131,26 @@ class NactServerResponse extends ServerResponse {
 }
 
 class NactIncomingMessage extends IncomingMessage {
+	protected body: any;
+
+	constructor(socket: Socket) {
+		super(socket);
+
+		this.body = undefined;
+
+		this.on("data", (chunk: Buffer) => {
+			if (chunk instanceof Buffer) {
+				this.body = chunk.toString();
+			} else {
+				this.body = chunk;
+			}
+		});
+	}
+
+	getBody(): any {
+		return this.body;
+	}
+
 	getHeader(name: string): string | string[] | null {
 		return this.headers[name] ?? null;
 	}
@@ -154,6 +199,10 @@ class NactRequest {
 
 	getHandler(): ((...args: any[]) => any) | undefined {
 		return this.handler?.getHandler();
+	}
+
+	getHandlerData(): RouteHandlerData | null {
+		return this.handler;
 	}
 
 	getRouteData(): RouteChild | undefined {
@@ -208,20 +257,6 @@ class NactRequest {
 	isSended(): boolean {
 		return this.response.writableEnded;
 	}
-
-	// forbiddenRequest() {
-	// 	if (!this.isSended()) {
-	// 		this.status(HTTPStatusCodes.FORBIDDEN).ContentType("txt");
-	// 		this.closeRequest();
-	// 	}
-	// }
-
-	// Request404() {
-	// 	if (!this.isClosed()) {
-	// 		this.ContentType("txt").status(HTTPStatusCodes.NOT_FOUND);
-	// 		this.closeRequest();
-	// 	}
-	// }
 
 	send(): NactRequest {
 		if (!this.response.isSended()) {

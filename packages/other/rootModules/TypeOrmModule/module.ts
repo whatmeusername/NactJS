@@ -5,10 +5,10 @@ import type {
 	NactRootModuleSettings,
 	NactCustomProvider,
 	NactCustomProviderSettings,
-} from "../../../core/Module/index";
+} from "../../../core/module/index";
 import { isClassInstance } from "../../../core/shared";
-import { createProvider } from "../../../core/Module";
-import { Inject } from "../../../core/Decorators/Inject/index";
+import { createProvider } from "../../../core/module";
+import { Inject } from "../../../core/decorators/Inject/";
 
 @Entity()
 class TestEntity {

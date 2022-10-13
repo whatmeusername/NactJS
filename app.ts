@@ -1,16 +1,8 @@
-import { Ip, Param, Query, Req, Get } from "./packages/core/Decorators";
+import { Ip, Param, Query, Req, Get } from "./packages/core/decorators";
 import NactCors from "./packages/other/Middleware/Cors/middleware";
 import { NactRequest } from "./packages/core/nact-request/index";
-import { createModule, createProvider } from "./packages/core/Module/index";
+import { createModule } from "./packages/core/module/index";
 
-import {
-	TestService,
-	TestService3,
-	TestServiceModule1,
-	TestServiceModule2,
-	TestServiceModule3,
-	TestServiceModuleV1,
-} from "./TemperaryFolder/TestServices";
 import { Controller, useHandler, Handler } from "./packages/core/";
 import { NactServer, HttpExpection, HttpExpectionHandler } from "./packages/core";
 
@@ -24,18 +16,32 @@ class TestHttpExpection extends HttpExpection {
 class TestHandler extends HttpExpectionHandler {
 	catch(expection: HttpExpection, ctx: NactRequest) {
 		const response = ctx.getResponse();
-		response.json(expection.getBody());
+	}
+}
+
+@Controller()
+class ControllerTest {
+	test: string;
+	constructor() {
+		this.test = "Hello world";
+	}
+
+	@Get("test")
+	public getTest() {
+		return { message: this.test };
+	}
+	@Get("123")
+	public GetHello(): any {
+		return { message: "Hello2" };
 	}
 }
 
 @Controller("api")
 @useHandler(TestHandler)
 class ApiController {
-	constructor(private SomeTrashService: TestService3) {}
-
 	@Get("delete?", ":hello(^hi2$)")
 	Delete(@Param { hello }: any) {
-		return { message: "bye" };
+		return { message: "Привет" };
 	}
 
 	@Get("/hello/:id(num)?")
@@ -51,7 +57,7 @@ class ApiController {
 	}
 
 	@Get("/hello/:id(str)")
-	HelloWorld2() {
+	HelloWorld2(@Param { id }: { id: string }) {
 		return { message: "Hello world 2" };
 	}
 
@@ -64,23 +70,10 @@ class ApiController {
 	ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
 		return { test: "id" };
 	}
-
-	onInstanceReady() {
-		console.log("yes");
-	}
 }
 
 createModule({
-	controllers: [ApiController],
-	providers: [
-		createProvider({
-			providerName: "test",
-			useFactory: () => {
-				return "test";
-			},
-		}),
-		TestService3,
-	],
+	controllers: [ControllerTest, ApiController],
 });
 
 function App() {

@@ -22,7 +22,7 @@ function createRouteParamDecorator(func: (req: NactRequest) => any) {
 			ROUTE__PARAMETER__METADATA,
 			setMetaData(target, key, ROUTE__PARAMS, func),
 			target.constructor,
-			key
+			key,
 		);
 	};
 }

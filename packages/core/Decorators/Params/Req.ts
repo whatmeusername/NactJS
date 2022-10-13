@@ -1,8 +1,8 @@
 import { createRouteParamDecorator } from "../Utils";
-import { NactRequest } from "../../index";
+import { NactIncomingMessage, NactRequest } from "../../index";
 
-const Req = createRouteParamDecorator(function (req: NactRequest) {
-	return req;
+const Req = createRouteParamDecorator(function (req: NactRequest): NactIncomingMessage {
+	return req.getRequest();
 });
 
 export { Req };

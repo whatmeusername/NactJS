@@ -1,12 +1,10 @@
-import { createProvider, NactTransferModule, createNewTransferModule } from "../../Module/index";
-import type { ProviderData } from "../../Module/index";
+import { createProvider, NactTransferModule, createNewTransferModule } from "../../module/index";
 import { NactServer } from "../../application";
 
 import { isInitializedClass } from "../../shared";
 
 import { ServiceEmpty, AnotherEmptyService, ServiceA, ServiceB, ServiceC, ServiceAlias } from "./test.service";
-
-type ServiceInstanceOrName = { new (...args: any): void } | string;
+import { ErrorStringIsNactError, getValueFromTestInstance, getProviderFromTransfer } from "../utils/utils";
 
 let server: NactServer;
 const createTestServer = () => {
@@ -16,36 +14,6 @@ const createTestServer = () => {
 };
 
 server = createTestServer();
-
-const ErrorStringIsNactError = (string: string): boolean => {
-	return string.includes("NACT ERROR");
-};
-const getValueFromTestInstance = (service: ServiceInstanceOrName[] | ServiceInstanceOrName): boolean => {
-	const services = Array.isArray(service) ? service : [service];
-	const transferModule = server.getTransferModule();
-
-	let result = false;
-	for (let i = 0; i < services.length; i++) {
-		const service = services[i];
-		const provider = transferModule.getProviderFromLocationByName(service);
-		if (provider && provider?.resolved) {
-			const instance = provider?.instance;
-
-			if (isInitializedClass(instance)) {
-				result = instance.getValue() ?? false;
-			} else {
-				result = instance === true;
-			}
-			if (!result) break;
-		}
-	}
-	return result;
-};
-
-const getProviderFromTransfer = (service: ServiceInstanceOrName | ServiceInstanceOrName): ProviderData => {
-	const transferModule = server.getTransferModule();
-	return transferModule.getProviderFromLocationByName(service);
-};
 
 describe("Nact modyle system testing", () => {
 	afterAll(() => {
@@ -60,7 +28,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const provider = getProviderFromTransfer(ServiceEmpty).instance;
+			const provider = getProviderFromTransfer(server, ServiceEmpty).instance;
 			expect(provider.someValue).toBeTruthy();
 		});
 	});
@@ -89,7 +57,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance(ServiceEmpty);
+			const result = getValueFromTestInstance(server, ServiceEmpty);
 			expect(result).toBe(true);
 		});
 
@@ -103,7 +71,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, AnotherEmptyService]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, AnotherEmptyService]);
 			expect(result).toBe(true);
 		});
 
@@ -114,7 +82,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA]);
 			expect(result).toBe(true);
 		});
 
@@ -125,7 +93,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA]);
 			expect(result).toBe(true);
 		});
 
@@ -141,7 +109,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA]);
 			expect(result).toBe(true);
 		});
 
@@ -157,7 +125,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA]);
 			expect(result).toBe(true);
 		});
 
@@ -168,7 +136,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA, ServiceB, ServiceC]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA, ServiceB, ServiceC]);
 			expect(result).toBe(true);
 		});
 
@@ -179,7 +147,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA, ServiceB, ServiceC]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA, ServiceB, ServiceC]);
 			expect(result).toBe(true);
 		});
 
@@ -190,7 +158,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA, ServiceB, ServiceC]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA, ServiceB, ServiceC]);
 			expect(result).toBe(true);
 		});
 
@@ -206,7 +174,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA, ServiceB, ServiceC]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA, ServiceB, ServiceC]);
 			expect(result).toBe(true);
 		});
 
@@ -222,7 +190,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA, ServiceB, ServiceC]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA, ServiceB, ServiceC]);
 			expect(result).toBe(true);
 		});
 
@@ -248,7 +216,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA, ServiceB, ServiceC]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA, ServiceB, ServiceC]);
 			expect(result).toBe(true);
 		});
 
@@ -274,7 +242,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance([ServiceEmpty, ServiceA, ServiceB, ServiceC]);
+			const result = getValueFromTestInstance(server, [ServiceEmpty, ServiceA, ServiceB, ServiceC]);
 			expect(result).toBe(true);
 		});
 
@@ -322,7 +290,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(2) Create custom provider with useValue, that will return undefined", async () => {
@@ -337,7 +305,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getProviderFromTransfer("custom_provider")?.instance;
+			const result = getProviderFromTransfer(server, "custom_provider")?.instance;
 			expect(result).toBeUndefined();
 		});
 		test("(3) Create custom provider with useValue, that will return null", async () => {
@@ -352,7 +320,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getProviderFromTransfer("custom_provider")?.instance;
+			const result = getProviderFromTransfer(server, "custom_provider")?.instance;
 			expect(result).toBeNull();
 		});
 		test("(4) Create custom provider with useValue, that will return 0", async () => {
@@ -367,7 +335,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getProviderFromTransfer("custom_provider")?.instance;
+			const result = getProviderFromTransfer(server, "custom_provider")?.instance;
 			expect(result).toBe(0);
 		});
 	});
@@ -385,7 +353,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(2) Checking if useClass can accept initialized classes", async () => {
@@ -400,7 +368,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(3) Checking if useClass can not accept non class instances", async () => {
@@ -436,7 +404,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(2) Create custom provider with useFactory, that will use injectArguments. providers ordered. same module", async () => {
@@ -455,7 +423,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(3) Create custom provider with useFactory, that will use injectArguments. providers unordered. same module", async () => {
@@ -474,7 +442,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(4) Create custom provider with useFactory, that will use injectArguments. other module", async () => {
@@ -497,7 +465,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(5) Create custom provider with useFactory, that will use injectArguments. Injectable service using other injections. providers ordered. same module", async () => {
@@ -517,7 +485,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(6) Create custom provider with useFactory, that will use injectArguments. Injectable service using other injections. providers unordered. same module", async () => {
@@ -537,7 +505,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(7) Create custom provider with useFactory, that will use injectArguments. Injectable service using other injections. other module", async () => {
@@ -559,7 +527,7 @@ describe("Nact modyle system testing", () => {
 					],
 				});
 			});
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(8) Create custom provider with useFactory, that will use injectArguments. Injectable service using other injections. between modules", async () => {
@@ -587,7 +555,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(9) Throw error injectArguments provided, if custom provider useFactory using arguments", async () => {
@@ -633,7 +601,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider_2");
+			const result = getValueFromTestInstance(server, "custom_provider_2");
 			expect(result).toBe(true);
 		});
 		test("(11) Injecting into useFactory another custom porvider. providers unordered", async () => {
@@ -658,7 +626,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider_2");
+			const result = getValueFromTestInstance(server, "custom_provider_2");
 			expect(result).toBe(true);
 		});
 		test("(12) Injecting into useFactory another custom porvider (optional, provided)", async () => {
@@ -677,7 +645,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 		test("(13) Injecting into useFactory another custom porvider (optional, not provided)", async () => {
@@ -696,7 +664,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance("custom_provider");
+			const result = getValueFromTestInstance(server, "custom_provider");
 			expect(result).toBe(true);
 		});
 	});
@@ -715,7 +683,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const provider = getProviderFromTransfer("AnotherEmptyService");
+			const provider = getProviderFromTransfer(server, "AnotherEmptyService");
 			expect(provider?.instance).toBeInstanceOf(ServiceEmpty);
 		});
 		test("(2) custom provider useAlias. providers unordered", async () => {
@@ -731,7 +699,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const provider = getProviderFromTransfer("AnotherEmptyService");
+			const provider = getProviderFromTransfer(server, "AnotherEmptyService");
 			expect(provider?.instance).toBeInstanceOf(ServiceEmpty);
 		});
 		test("(3) providier injecting custom provider with useAlias. providers ordered", async () => {
@@ -748,7 +716,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance(ServiceAlias);
+			const result = getValueFromTestInstance(server, ServiceAlias);
 			expect(result).toBe(true);
 		});
 		test("(4) providier injecting custom provider with useAlias. providers unordered", async () => {
@@ -765,7 +733,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance(ServiceAlias);
+			const result = getValueFromTestInstance(server, ServiceAlias);
 			expect(result).toBe(true);
 		});
 		test("(4) providier injecting custom provider with useAlias. providers unordered. using imports / exports. module ordered", async () => {
@@ -786,7 +754,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance(ServiceAlias);
+			const result = getValueFromTestInstance(server, ServiceAlias);
 			expect(result).toBe(true);
 		});
 		test("(4) providier injecting custom provider with useAlias. providers unordered. using imports / exports. module unordered", async () => {
@@ -807,7 +775,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance(ServiceAlias);
+			const result = getValueFromTestInstance(server, ServiceAlias);
 			expect(result).toBe(true);
 		});
 		test("(5) using 'useAlias' on another custom provider", async () => {
@@ -827,7 +795,7 @@ describe("Nact modyle system testing", () => {
 				});
 			});
 
-			const result = getValueFromTestInstance(ServiceAlias);
+			const result = getValueFromTestInstance(server, ServiceAlias);
 			expect(result).toBe(true);
 		});
 	});

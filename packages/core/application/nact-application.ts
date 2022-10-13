@@ -9,7 +9,7 @@ import { Socket } from "net";
 import { createSharedNactLogger, NactLogger } from "../nact-logger/logger";
 import { NactRouteLibrary } from "../routing/NactRouteLibary";
 import { NactRequest, NactServerResponse, NactIncomingMessage } from "../nact-request";
-import { createNewTransferModule, getTransferModule, NactTransferModule } from "../Module";
+import { createNewTransferModule, getTransferModule, NactTransferModule } from "../module";
 
 import type { InjectRequest, serverSettings } from "./interface";
 import { HttpExpectionHandler, BaseHttpExpectionHandler } from "../expections";
@@ -190,21 +190,24 @@ class NactServer {
 		let response = undefined;
 
 		if (runMiddlewares(this.GlobalConfig.getGlobalMiddleware(), request)) {
-			const routeMethodData = this.RouteLibrary.getRouteMethodOr404(request);
-			const routeMethod = routeMethodData?.method;
-			if (routeMethod) {
+			const HandlerRouter = this.RouteLibrary.getRouteMethodOr404(request);
+
+			const handlerData = request.getHandlerData();
+			if (HandlerRouter) {
 				response = new Promise((resolve) => {
-					const params = this.RouteLibrary.getRouteParams(request.getHandlerClass(), routeMethod.name, request);
-					return resolve(routeMethod(...params)) as any;
+					return resolve(handlerData?.callMethod());
 				});
 
 				await response
-					.then((res) => {
+					.then((res: any) => {
 						request.setPayload(res);
 					})
-					.catch((err) => {
-						const routeConfig = routeMethodData.controller.getControllerHandler();
-						routeConfig.handle(err, request);
+					.catch((err: any) => {
+						const routeConfig = HandlerRouter.getControllerHandler();
+						const isHandled = routeConfig.handle(err, request);
+						if (!isHandled) {
+							throw err;
+						}
 					});
 			}
 		}
@@ -294,6 +297,10 @@ class NactServer {
 			}
 
 			const rawRequest = new NactIncomingMessage(new Socket());
+
+			if (RequestData.body !== undefined) {
+				rawRequest.emit("data", RequestData.body);
+			}
 
 			setURL(rawRequest);
 			setHost(rawRequest);

@@ -1,7 +1,7 @@
 import type { NactRoutes, RouteChild, NactLibraryConfig } from "./index";
 
 // TODO REPLACE LATER
-import { removeSlashes } from "../../utils/Other";
+import { removeSlashes } from "../shared/index";
 import {
 	findRouteByParams,
 	getRouteData,
@@ -190,11 +190,8 @@ class NactRouteLibrary {
 	}
 
 	getRouteParams(rc: any, routeKEY: string, req: NactRequest): any[] {
-		const routeMetadata = Reflect.getMetadata(
-			ROUTE__PARAMETER__METADATA,
-			rc?.name !== undefined ? rc : rc.constructor,
-			routeKEY,
-		);
+		const routeMetadata = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, rc, routeKEY);
+
 		let methodParamsVariables: any[] = [];
 
 		if (routeMetadata) {
@@ -204,7 +201,7 @@ class NactRouteLibrary {
 		return methodParamsVariables;
 	}
 
-	getRouteMethodOr404(req: NactRequest): { method: (...args: any[]) => any[]; controller: NactRouter } | undefined {
+	getRouteMethodOr404(req: NactRequest): NactRouter | undefined {
 		const params = req.getURLData().params;
 		const method = req.getMethod();
 
@@ -214,10 +211,13 @@ class NactRouteLibrary {
 			const route = this.walkRoute(Router, { path: params, method: method });
 			if (route) {
 				const controllerInstance = Router.getInstance();
-				//@ts-ignore
-				const method = controllerInstance[route.name];
-				req.__handler = new RouteHandlerData(controllerInstance, method, route);
-				return { method: method, controller: Router };
+
+				//@ts-ignore getting method from Class Instance
+				const routeHandlerData = new RouteHandlerData(controllerInstance, controllerInstance[route.name], route);
+				req.__handler = routeHandlerData;
+				routeHandlerData.__routeArgs = this.getRouteParams(controllerInstance.constructor, route.name, req);
+
+				return Router;
 			} else {
 				req.getResponse().status(404);
 			}

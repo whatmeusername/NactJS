@@ -10,16 +10,10 @@ import {
 const server = new NactServer("nact-request-test", { loggerEnabled: false });
 
 describe("nact routing functionality", () => {
-	beforeAll(() => {
-		server.clearModuleConfiguration((key, tm) => {
+	beforeAll(async () => {
+		await server.clearModuleConfiguration((key, tm) => {
 			tm.useModule({
-				controllers: [
-					BaseController1,
-					OptionalController,
-					RegexContorller,
-					MultiPathsController,
-					MultiMethodsController,
-				],
+				controllers: [BaseController1, OptionalController, RegexContorller, MultiPathsController, MultiMethodsController],
 			});
 		});
 	});
