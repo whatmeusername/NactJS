@@ -2,10 +2,6 @@
 #vscode
 .vscode
 
-# Other
-coverage/
-TemperaryFolder/
-jest.config.txt/
 
 # dependencies
 node_modules/
@@ -17,4 +13,5 @@ packages/**/*.js
 
 # misc
 .DS_Store
-.VSCodeCounter/
+coverage
+.VSCodeCounter
