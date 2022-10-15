@@ -7,6 +7,8 @@ class HttpExpection extends Error {
 	protected __setMessage(): void {
 		if (!this.response) {
 			this.message = this.constructor.name;
+		} else {
+			this.message = this.response;
 		}
 	}
 

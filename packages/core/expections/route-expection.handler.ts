@@ -7,6 +7,7 @@ import { getRouteConfig } from "../routing/utils";
 import { isInitializedClass } from "../shared";
 import { HttpExpectionHandler } from "./base-http-expection-handler.handler";
 import { HttpExpection } from "./base-http-expection.expection";
+import { ROUTE__CONFIG } from "../nact-constants";
 
 function mapHandlers(handlers: NactRouteWare | undefined): HttpExpectionHandler[] {
 	const res: HttpExpectionHandler[] = [];
@@ -53,13 +54,16 @@ class ControllerExpectionsHandler {
 
 	handle(expection: HttpExpection, ctx: NactRequest): boolean {
 		const routeMethod = ctx.getHandler();
-		const methodHandlers = getRouteConfig(routeMethod)?.handlers;
+		const methodHandlers = Reflect.getMetadata(ROUTE__CONFIG, routeMethod ?? {})?.handlers;
+
 		const instances: HttpExpectionHandler[] = mapHandlers(methodHandlers);
 		const orderedFilters: HttpExpectionHandler[] = [...instances, ...this.handlers];
 
 		for (let i = 0; i < orderedFilters.length; i++) {
 			const filter = orderedFilters[i];
-			if (filter.accept(expection, ctx)) return true;
+			if (filter.accept(expection, ctx)) {
+				return true;
+			}
 		}
 
 		return false;

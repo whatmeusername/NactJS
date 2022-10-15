@@ -27,6 +27,7 @@ function useHandler(...handlers: ({ new (...args: any[]): HttpExpectionHandler }
 				}
 				mapHandlers(handlers, routeHandlers.fns);
 				Reflect.defineMetadata(ROUTE__CONFIG, routeConfig, descriptor.value);
+
 				return descriptor;
 			}
 		}

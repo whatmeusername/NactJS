@@ -1,5 +1,4 @@
-import { createProvider, NactTransferModule, createNewTransferModule } from "../../module/index";
-import type { ProviderData } from "../../module/index";
+import { createRouteParamDecorator } from "../../decorators";
 import { NactServer } from "../../application";
 
 import { ParamsController } from "./test.service";

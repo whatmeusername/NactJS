@@ -9,7 +9,6 @@ import { parse } from "path";
 import { getRequestURLInfo, getProtocol, getRequestIP, getHost, getOrigin } from "./utils";
 
 import { NactUrlParseQuery, NactSendFileOption } from "./index";
-import { isInitializedClass } from "../shared";
 import { Socket } from "net";
 
 const SendFileDefaultOption = {
@@ -64,6 +63,27 @@ class RouteHandlerData {
 }
 
 class NactServerResponse extends ServerResponse {
+	private ctx?: NactRequest | undefined;
+
+	constructor(req: IncomingMessage) {
+		super(req);
+		this.ctx = undefined;
+	}
+
+	set __ctx(ctx: NactRequest) {
+		if (!this.ctx) {
+			this.ctx = ctx;
+		}
+
+		this.on("finish", () => {
+			console.log("YES");
+		});
+	}
+
+	getCtx(): NactRequest | undefined {
+		return this.ctx;
+	}
+
 	isSended(): boolean {
 		return this.writableEnded;
 	}
@@ -73,7 +93,7 @@ class NactServerResponse extends ServerResponse {
 			const json = JSON.stringify(body);
 			this.setHeader("Content-Type", "application/json; charset=utf-8");
 			this.length(Buffer.from(json).byteLength);
-
+			this.ctx?.setPayload(body);
 			return this.end(json, "utf8");
 		}
 		return this;
@@ -88,7 +108,7 @@ class NactServerResponse extends ServerResponse {
 					const stringifyData = JSON.stringify(data);
 					this.length(Buffer.from(stringifyData).byteLength);
 					this.write(stringifyData);
-
+					this.ctx?.setPayload(data);
 					return this.end();
 				}
 			} else {
@@ -132,11 +152,13 @@ class NactServerResponse extends ServerResponse {
 
 class NactIncomingMessage extends IncomingMessage {
 	protected body: any;
+	private ctx?: NactRequest | undefined;
 
 	constructor(socket: Socket) {
 		super(socket);
 
 		this.body = undefined;
+		this.ctx = undefined;
 
 		this.on("data", (chunk: Buffer) => {
 			if (chunk instanceof Buffer) {
@@ -145,6 +167,12 @@ class NactIncomingMessage extends IncomingMessage {
 				this.body = chunk;
 			}
 		});
+	}
+
+	set __ctx(ctx: NactRequest) {
+		if (!this.ctx) {
+			this.ctx = ctx;
+		}
 	}
 
 	getBody(): any {
@@ -184,6 +212,9 @@ class NactRequest {
 		this.payload = null;
 
 		this.__logger = getNactLogger() as NactLogger;
+
+		this.request.__ctx = this;
+		this.response.__ctx = this;
 	}
 
 	set __handler(__handler: RouteHandlerData) {

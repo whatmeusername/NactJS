@@ -12,7 +12,7 @@ import { NactRequest, NactServerResponse, NactIncomingMessage } from "../nact-re
 import { createNewTransferModule, getTransferModule, NactTransferModule } from "../module";
 
 import type { InjectRequest, serverSettings } from "./interface";
-import { HttpExpectionHandler, BaseHttpExpectionHandler } from "../expections";
+import { HttpExpectionHandler, BaseHttpExpectionHandler, HttpExpection } from "../expections";
 
 function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequest: NactRequest): boolean {
 	for (let i = 0; i < middlewares.length; i++) {
@@ -205,6 +205,7 @@ class NactServer {
 					.catch((err: any) => {
 						const routeConfig = HandlerRouter.getControllerHandler();
 						const isHandled = routeConfig.handle(err, request);
+
 						if (!isHandled) {
 							throw err;
 						}

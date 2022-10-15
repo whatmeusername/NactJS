@@ -67,9 +67,10 @@ class BaseHttpExpectionHandler extends HttpExpectionHandler {
 			? { statusCode: expection.statusCode, message: expection.message }
 			: { statusCode: HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR, message: HTTP_STATUS_MESSAGES.InternalServerError };
 
+		ctx.setPayload(res);
 		response.json(res);
 		return true;
 	}
 }
 
-export { HttpExpectionHandler, BaseHttpExpectionHandler };
+export { HttpExpectionHandler, BaseHttpExpectionHandler, isExpectionObject };
