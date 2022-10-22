@@ -183,7 +183,9 @@ class NactServer {
 
 	protected __RequestHandler = (req: NactIncomingMessage, res: NactServerResponse) => {
 		const request = new NactRequest(req, res);
-		this.__executeRequest(request);
+		request.getRequest().once("end", () => {
+			this.__executeRequest(request);
+		});
 	};
 
 	protected async __executeRequest(request: NactRequest): Promise<NactRequest | undefined> {
@@ -252,6 +254,7 @@ class NactServer {
 	}
 
 	public async injectRequest(RequestData: InjectRequest) {
+		RequestData.url = RequestData.url.toLowerCase();
 		const URLdata = parse(RequestData.url);
 
 		function getHTTPRequest(): NactIncomingMessage {

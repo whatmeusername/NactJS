@@ -74,10 +74,6 @@ class NactServerResponse extends ServerResponse {
 		if (!this.ctx) {
 			this.ctx = ctx;
 		}
-
-		this.on("finish", () => {
-			console.log("YES");
-		});
 	}
 
 	getCtx(): NactRequest | undefined {

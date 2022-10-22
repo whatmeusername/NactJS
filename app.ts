@@ -67,7 +67,7 @@ class ApiController {
 	}
 
 	@Get("/:yes/hello/:id?")
-	ByeWorldWithId(@Query query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
+	ByeWorldWithId(@Query() query: URLSearchParams, @Param { yes, id }: any, @Req req: NactRequest, @Ip ip: string) {
 		return { test: "id" };
 	}
 }

@@ -1,4 +1,3 @@
-import { createRouteParamDecorator } from "../../decorators";
 import { NactServer } from "../../application";
 
 import { ParamsController } from "./test.service";
@@ -73,6 +72,15 @@ describe("Nact params decorator test", () => {
 	test("Using route with @Query (2 params)", async () => {
 		const res = await server.injectRequest({
 			url: "/params/query2/?somevalue=true&new=false",
+			method: "GET",
+		});
+
+		expect(res?.getPayload()?.data).toBe(true);
+	});
+
+	test("Using route with @Query Array", async () => {
+		const res = await server.injectRequest({
+			url: "/params/queryArray/?somevalue=true&somevalue=false",
 			method: "GET",
 		});
 

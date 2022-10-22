@@ -26,13 +26,18 @@ class ParamsController {
 	}
 
 	@Get("query")
-	methodWithQuery(@Query query: URLSearchParams): { data: boolean } {
-		return { data: query.get("somevalue") === "true" };
+	methodWithQuery(@Query("somevalue") { somevalue }: { somevalue: string }): { data: boolean } {
+		return { data: somevalue === "true" };
 	}
 
 	@Get("query2")
-	methodWithQuery2(@Query query: URLSearchParams): { data: boolean } {
+	methodWithQuery2(@Query() query: URLSearchParams): { data: boolean } {
 		return { data: query.get("somevalue") === "true" && query.get("new") === "false" };
+	}
+
+	@Get("queryArray")
+	methodWithQueryArray(@Query("somevalue[]") { somevalue }: { somevalue: string[] }): { data: boolean } {
+		return { data: Array.isArray(somevalue) && somevalue.length > 1 };
 	}
 
 	@Post("body")
