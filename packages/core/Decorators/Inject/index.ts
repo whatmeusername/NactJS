@@ -1,2 +1,2 @@
 export * from "./Inject";
-export * from "./injectable";
+export * from "./Injectable";

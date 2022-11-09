@@ -10,6 +10,7 @@ let server: NactServer;
 const createTestServer = () => {
 	const app = new NactServer("nact-module-testing", { loggerEnabled: false });
 	server = app;
+	server.offline();
 	return app;
 };
 

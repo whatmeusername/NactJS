@@ -75,7 +75,13 @@ class NactModule {
 	constructor(settings: NactModuleSettings, transferModuleKey?: string) {
 		this.transferModuleKey = transferModuleKey ?? "0";
 		this.__moduleToken = getUniqueToken(settings.isRoot ? ROOT_MODULE_TOKEN : MODULE_TOKEN);
-		this.__moduleSettings = settings;
+		this.__moduleSettings = {
+			providers: settings.providers ?? [],
+			controllers: settings.controllers ?? [],
+			import: settings.import ?? [],
+			export: settings.export ?? [],
+			isRoot: settings.isRoot ?? false,
+		};
 		this.__isInited = false;
 
 		this.providers = [];
@@ -149,6 +155,10 @@ class NactModule {
 		return this.providers.find((provider) => provider.name === providerNameOrToken);
 	}
 
+	getProviderFromImport(providerName: string): any {
+		return this.import.find((provider) => provider.name === providerName);
+	}
+
 	getProviderFromSettings(providerName: string): any | undefined {
 		const providersFromSettings = this.__moduleSettings?.providers;
 		if (providersFromSettings) {
@@ -196,7 +206,7 @@ class NactModule {
 						}
 						//
 						else {
-							const ImportedDepency = this.import?.find((provider) => provider.name === constructorParam.name);
+							const ImportedDepency = this.getProviderFromImport(constructorParam.name);
 							if (ImportedDepency) {
 								if (!ImportedDepency?.resolved) return null;
 								constructorParams.push(ImportedDepency.instance);
@@ -391,7 +401,7 @@ class NactModule {
 			if (controllerData.constructorParams.count > 0) {
 				for (let i = 0; i < controllerData.constructorParams.count; i++) {
 					const constructorParam = controllerData.constructorParams.params[i];
-					const provider = this.getProvider(constructorParam.name);
+					const provider = this.getProvider(constructorParam.name) || this.getProviderFromImport(constructorParam.name);
 					if (provider) {
 						params.push(provider.instance);
 					} else {

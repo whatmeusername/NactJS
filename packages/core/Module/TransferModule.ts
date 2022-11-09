@@ -53,9 +53,9 @@ interface NactRootModuleSettings extends Omit<NactModuleSettings, "import"> {
 	exports?: any[];
 }
 
-function createRootModule(settings: NactRootModuleSettings): NactModule {
+function createRootModule(settings: NactRootModuleSettings, key: string): NactModule {
 	settings.isRoot = true;
-	const newModule = new NactModule(settings);
+	const newModule = new NactModule(settings, key);
 	return newModule;
 }
 
@@ -100,7 +100,7 @@ class NactTransferModule {
 				this.__getExports(module);
 			} else if (isRootModule(module)) {
 				NactLogger.error(
-					"Tried append root module as standard module. To append root modules use 'useRootModule' instead."
+					"Tried append root module as standard module. To append root modules use 'useRootModule' instead.",
 				);
 			}
 		};
@@ -130,7 +130,7 @@ class NactTransferModule {
 		};
 		const create = (settings: NactRootModuleSettings) => {
 			exportAllProviders(settings);
-			const module = createRootModule(settings);
+			const module = createRootModule(settings, this.key);
 			this.__modules.unshift(module);
 			module.__loadExports(module.__moduleSettings?.export ?? []);
 			this.__getExports(module);
@@ -353,9 +353,7 @@ class NactTransferModule {
 						}
 					} else {
 						const importedProvider = this.__getProviderFromLocation(currentImportName);
-						const importPosition = moduleImports.findIndex(
-							(imp) => imp.name === currentImportName && imp.resolved === false
-						);
+						const importPosition = moduleImports.findIndex((imp) => imp.name === currentImportName && imp.resolved === false);
 						if (importPosition !== -1) moduleImports[importPosition] = importedProvider;
 					}
 				}

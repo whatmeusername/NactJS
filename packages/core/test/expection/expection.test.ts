@@ -6,6 +6,7 @@ let server: NactServer;
 const createTestServer = () => {
 	const app = new NactServer("nact-expection-testing", { loggerEnabled: false });
 	server = app;
+	server.offline();
 	return app;
 };
 

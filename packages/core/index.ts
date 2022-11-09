@@ -5,7 +5,7 @@ export * from "./nact-constants";
 export * from "./nact-logger";
 export * from "./nact-request";
 export * from "./routing";
-export * from "./reflector";
+export * from "./Reflector";
 export * from "./expections";
 
 export * from "./application";

@@ -1,14 +1,13 @@
-import { createProvider, NactTransferModule, createNewTransferModule } from "../../module/index";
-import type { ProviderData } from "../../module/index";
 import { NactServer } from "../../application";
 
 import { MethodController } from "./test.service";
-import { Reflector } from "../../reflector";
+import { Reflector } from "../../Reflector";
 
 let server: NactServer;
 const createTestServer = () => {
 	const app = new NactServer("nact-method_decorator-testing", { loggerEnabled: false });
 	server = app;
+	server.offline();
 	return app;
 };
 

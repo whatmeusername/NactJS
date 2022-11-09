@@ -1,6 +1,6 @@
 import { HANDLER__ALLOWED__EXPECTIONS } from "../nact-constants/router.const";
 import type { NactRequest } from "../nact-request/request";
-import { Reflector } from "../reflector";
+import { Reflector } from "../Reflector";
 import { isObject } from "../shared";
 import { HttpExpection } from "./base-http-expection.expection";
 import { getNamesForExpectionHandler } from "./utils";

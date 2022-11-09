@@ -1,10 +1,13 @@
 import { Ip, Param, Query, Req, Get } from "./packages/core/decorators";
 import NactCors from "./packages/other/Middleware/Cors/middleware";
 import { NactRequest } from "./packages/core/nact-request/index";
-import { createModule } from "./packages/core/module/index";
+import { createModule, getTransferModule } from "./packages/core/module/index";
 
 import { Controller, useHandler, Handler } from "./packages/core/";
 import { NactServer, HttpExpection, HttpExpectionHandler } from "./packages/core";
+import { TypeORMModule } from "./packages/other/rootModules/TypeOrmModule";
+import { TypeormTestEntity } from "./packages/other/rootModules/TypeOrmModule/test/entity";
+import { TestTypeORMService } from "./packages/other/rootModules/TypeOrmModule/test/typeorm.service";
 
 class TestHttpExpection extends HttpExpection {
 	constructor() {
@@ -73,7 +76,7 @@ class ApiController {
 }
 
 createModule({
-	controllers: [ControllerTest, ApiController],
+	controllers: [ControllerTest, ApiController, TestTypeORMService],
 });
 
 function App() {

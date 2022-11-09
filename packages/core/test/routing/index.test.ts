@@ -7,7 +7,15 @@ import {
 	MultiMethodsController,
 } from "./test.controller";
 
-const server = new NactServer("nact-request-test", { loggerEnabled: false });
+let server: NactServer;
+const createTestServer = () => {
+	const app = new NactServer("nact-request-test", { loggerEnabled: false });
+	server = app;
+	server.offline();
+	return app;
+};
+
+server = createTestServer();
 
 describe("nact routing functionality", () => {
 	beforeAll(async () => {

@@ -103,8 +103,6 @@ class NactServer {
 		this.GlobalConfig = new NactGlobalConfig(this);
 		this.running = false;
 		this.transferModuleKey = transferModuleKey ?? "0";
-
-		this.__initialize();
 	}
 
 	// ---- Global ----
@@ -113,7 +111,7 @@ class NactServer {
 		return this.GlobalConfig;
 	}
 
-	public useMiddleware(middleware: (req: NactRequest) => void) {
+	public useMiddleware(middleware: (req: NactRequest) => void): this {
 		this.GlobalConfig.addGlobalMiddleware(middleware);
 		this.logger.info(`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`, "MIDDLEWARE");
 		return this;
@@ -145,7 +143,7 @@ class NactServer {
 	}
 
 	// ===== Initilization =====
-	protected async __initialize() {
+	protected async __initialize(): Promise<void> {
 		this.useHandler(BaseHttpExpectionHandler);
 		await this.getTransferModule().initialize();
 
@@ -156,7 +154,7 @@ class NactServer {
 		this.__messageOnInitilizationEnd();
 	}
 
-	protected __messageOnInitilizationEnd() {
+	protected __messageOnInitilizationEnd(): void {
 		if (this.running) {
 			const protocol = "http://";
 			const ipv4 = this.IPv4 ?? "localhost";
@@ -181,7 +179,7 @@ class NactServer {
 		}
 	}
 
-	protected __RequestHandler = (req: NactIncomingMessage, res: NactServerResponse) => {
+	protected __RequestHandler = (req: NactIncomingMessage, res: NactServerResponse): void => {
 		const request = new NactRequest(req, res);
 		request.getRequest().once("end", () => {
 			this.__executeRequest(request);
@@ -227,13 +225,23 @@ class NactServer {
 		return this.server;
 	}
 
-	public listen(port: number) {
+	public listen(port: number): this {
 		if (!this.running) {
 			this.server.listen(port, () => {
+				this.__initialize();
 				this.running = true;
 				this.serverPort = port;
 			});
 		}
+		return this;
+	}
+
+	public async offline(): Promise<this> {
+		if (!this.running) {
+			await this.__initialize();
+			this.running = true;
+		}
+		return this;
 	}
 
 	public resetConfiguration() {
