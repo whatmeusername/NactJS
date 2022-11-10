@@ -431,6 +431,16 @@ class NactModule {
 				resolveControllerInstance(controllerData, controller);
 
 				this.controllers.push(controllerData);
+
+				getTransferModule(this.transferModuleKey)
+					.getProviderLocator()
+					.push({
+						name: controllerData.name,
+						moduleKey: this.getModuleToken(),
+						key: controllerData.uniqueToken,
+						resolved: controllerData.isReady,
+						instance: controllerData.isReady ? controllerData.instance : null,
+					});
 			} else {
 				NactLogger.error(
 					`Controllers not allowed to be injectable as same time, but controller "${controller.name}" has injectable flag on.`,

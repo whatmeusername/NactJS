@@ -13,25 +13,23 @@ import { EntityClassOrSchema, TypeOrmRootProviderSettings } from "./interface";
 import { DatabaseStorage, getDataSourceToken, getRepositoryToken } from "./utils";
 
 const logger = getNactLogger();
-
-const deferConnection = async (cb: () => Promise<any> | void): Promise<void> => {
-	try {
-		await cb();
-	} catch (err: any) {
-		logger.error(`Catch error while connecting to database. Message: ${err.message}`);
-	}
-};
-
 const DEFAULT_DS_TOKEN = "DATASOURCE_DEFAULT";
 
 class TypeORMModule {
 	static options: { [K: string]: TypeOrmRootProviderSettings } = {};
+	static sourceLength: number;
 
 	constructor() {}
 
+	/**
+	 * Creating root module for creating custom providers nedeed for connecting to TypeOrm datasource(s).
+	 * @param  {TypeOrmRootProviderSettings|TypeOrmRootProviderSettings[]} options Datasource connection options
+	 * @returns NactRootModuleSettings returning config for creating root module
+	 */
 	static root(options: TypeOrmRootProviderSettings | TypeOrmRootProviderSettings[]): NactRootModuleSettings {
 		const providers: NactCustomProvider[] = [];
 		options = Array.isArray(options) ? options : [options];
+		this.sourceLength = options.length;
 
 		for (let i = 0; i < options.length; i++) {
 			const option = options[i];
@@ -68,7 +66,7 @@ class TypeORMModule {
 	};
 
 	protected static getDataSourceProvider(options: TypeOrmRootProviderSettings): NactCustomProvider {
-		const providerToken = Object.keys(this.options).length > 1 ? getDataSourceToken(options) : DEFAULT_DS_TOKEN;
+		const providerToken = this.sourceLength > 1 ? getDataSourceToken(options) : DEFAULT_DS_TOKEN;
 		const settings: NactCustomProviderSettings = { providerName: providerToken };
 
 		settings.useFactory = async () => {
@@ -98,11 +96,30 @@ class TypeORMModule {
 			injectArguments: [dataSourceToken],
 		});
 	}
-
-	static getRepositories(entities: EntityClassOrSchema[], dataSource?: DataSource): any {
-		const DataSourceToken = dataSource
-			? (DatabaseStorage.getDataSource(dataSource) as string)
-			: DatabaseStorage.getDataSourceTokenByIndex(0);
+	/**
+	 * Used to get repositories from datasource as providers for module;
+	 * @param  {EntityClassOrSchema[]} entities TypeOrm entities to retrieve
+	 * @param  {DataSource|string} [dataSource]
+	 * Optional. Can be used only when using two or more datasources, indicates from what datasource will retrieve repositories.
+	 * By default is has value of "DATASOURCE_DEFAULT" that indicates datasource, when there only one datasource connection.
+	 * @returns NactCustomProviderSettings
+	 */
+	static getRepositories(
+		entities: EntityClassOrSchema[],
+		dataSource?: DataSource | string,
+	): NactCustomProviderSettings[] {
+		if (this.sourceLength > 0 && !dataSource) {
+			logger.error(
+				"TypeOrmModule cant use method 'getRepositories' without dataSource argument when using two or more datasources",
+			);
+			return [];
+		}
+		const DataSourceToken =
+			typeof dataSource === "string"
+				? getDataSourceToken(dataSource)
+				: dataSource
+				? (DatabaseStorage.getDataSource(dataSource) as string)
+				: DatabaseStorage.getDataSourceTokenByIndex(0);
 		const providers = [];
 		if (DataSourceToken) {
 			DatabaseStorage.addEntityByDataSource(DataSourceToken, entities);

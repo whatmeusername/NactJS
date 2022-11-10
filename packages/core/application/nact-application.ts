@@ -11,8 +11,8 @@ import { NactRouteLibrary } from "../routing/NactRouteLibary";
 import { NactRequest, NactServerResponse, NactIncomingMessage } from "../nact-request";
 import { createNewTransferModule, getTransferModule, NactTransferModule } from "../module";
 
-import type { InjectRequest, serverSettings } from "./interface";
-import { HttpExpectionHandler, BaseHttpExpectionHandler, HttpExpection } from "../expections";
+import type { InjectRequest, NactListernerEvent, serverSettings } from "./interface";
+import { HttpExpectionHandler, BaseHttpExpectionHandler } from "../expections";
 
 function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequest: NactRequest): boolean {
 	for (let i = 0; i < middlewares.length; i++) {
@@ -90,6 +90,8 @@ class NactServer {
 	private running: boolean;
 	private transferModuleKey: string;
 
+	private listeners: { start: (() => void)[]; close: (() => void)[] };
+
 	constructor(transferModuleKey?: string, serverSetting?: serverSettings) {
 		this.server = createServer(
 			{ ServerResponse: NactServerResponse, IncomingMessage: NactIncomingMessage },
@@ -103,6 +105,26 @@ class NactServer {
 		this.GlobalConfig = new NactGlobalConfig(this);
 		this.running = false;
 		this.transferModuleKey = transferModuleKey ?? "0";
+
+		this.listeners = { start: [], close: [] };
+	}
+
+	// --- subscribers
+	on(event: NactListernerEvent, cb: () => void): void {
+		if (this.listeners[event] && typeof cb === "function") {
+			this.listeners[event].push(cb);
+		} else {
+			this.logger.warning(`tried to subscribe on ${event} event, that not exists defined in nact`);
+		}
+	}
+
+	emit(event: NactListernerEvent): void {
+		const events = this.listeners[event];
+		if (event && Array.isArray(events)) {
+			for (let i = 0; i < events.length; i++) {
+				events[i]();
+			}
+		}
 	}
 
 	// ---- Global ----
@@ -149,6 +171,12 @@ class NactServer {
 
 		const controllers = this.getTransferModule().getModulesControllers(true);
 		this.RouteLibrary.registerController(controllers);
+
+		this.getTransferModule().emitAllProviderEvent("start");
+		this.on("close", () => {
+			this.getTransferModule().emitAllProviderEvent("close");
+		});
+
 		this.__getLocalMachineIP();
 
 		this.__messageOnInitilizationEnd();
@@ -187,14 +215,12 @@ class NactServer {
 	};
 
 	protected async __executeRequest(request: NactRequest): Promise<NactRequest | undefined> {
-		let response = undefined;
-
 		if (runMiddlewares(this.GlobalConfig.getGlobalMiddleware(), request)) {
 			const HandlerRouter = this.RouteLibrary.getRouteMethodOr404(request);
 
 			const handlerData = request.getHandlerData();
 			if (HandlerRouter) {
-				response = new Promise((resolve) => {
+				const response = new Promise((resolve) => {
 					return resolve(handlerData?.callMethod());
 				});
 

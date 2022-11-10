@@ -24,6 +24,7 @@ import {
 } from "./index";
 
 import { isClassInstance } from "../shared/index";
+import { NactListernerEvent } from "../application";
 
 // const logger = getNactLogger();
 const NactLogger = getNactLogger();
@@ -80,6 +81,30 @@ class NactTransferModule {
 	// ===== Getters ====
 	get length() {
 		return this.__modules.length;
+	}
+
+	emitProviderEvent(event: NactListernerEvent, key: string): void {
+		const provider = this.__providersLocator.find((provider) => provider.key === key);
+		if (provider) {
+			if (event === "close" && provider.instance.onApplicationShutdown) {
+				provider.instance.onApplicationShutdown();
+			} else if (event === "start" && provider.instance.onApplicationStart) {
+				provider.instance.onApplicationStart();
+			}
+		}
+	}
+
+	emitAllProviderEvent(event: NactListernerEvent): void {
+		for (let i = 0; i < this.__providersLocator.length; i++) {
+			const provider = this.__providersLocator[i];
+			if (provider) {
+				if (event === "close" && provider.instance.onApplicationShutdown) {
+					provider.instance.onApplicationShutdown();
+				} else if (event === "start" && provider.instance.onApplicationStart) {
+					provider.instance.onApplicationStart();
+				}
+			}
+		}
 	}
 
 	getProviderLocator(): ProviderLocation[] {

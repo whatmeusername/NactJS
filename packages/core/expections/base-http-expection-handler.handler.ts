@@ -41,7 +41,14 @@ abstract class HttpExpectionHandler {
 }
 
 function isExpectionObject(expection: any): expection is { statusCode: number; message: string } {
-	return isObject(expection) && expection?.message !== undefined && !expection.statusCode !== undefined;
+	return (
+		isObject(expection) &&
+		expection?.message !== undefined &&
+		typeof expection?.message === "string" &&
+		!expection.statusCode !== undefined &&
+		!expection.statusCode !== null &&
+		typeof expection.statusCode === "number"
+	);
 }
 
 class BaseHttpExpectionHandler extends HttpExpectionHandler {
@@ -64,7 +71,10 @@ class BaseHttpExpectionHandler extends HttpExpectionHandler {
 	handleUnknowException(expection: any, ctx: NactRequest): boolean {
 		const response = ctx.getResponse();
 		const res = isExpectionObject(expection)
-			? { statusCode: expection.statusCode, message: expection.message }
+			? {
+					statusCode: expection.statusCode ?? HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR,
+					message: expection.message ?? HTTP_STATUS_MESSAGES.InternalServerError,
+			  }
 			: { statusCode: HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR, message: HTTP_STATUS_MESSAGES.InternalServerError };
 
 		ctx.setPayload(res);

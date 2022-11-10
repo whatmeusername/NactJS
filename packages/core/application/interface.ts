@@ -10,4 +10,6 @@ interface serverSettings {
 	loggerEnabled?: boolean;
 }
 
-export type { InjectRequest, serverSettings };
+type NactListernerEvent = "close" | "start";
+
+export type { InjectRequest, serverSettings, NactListernerEvent };

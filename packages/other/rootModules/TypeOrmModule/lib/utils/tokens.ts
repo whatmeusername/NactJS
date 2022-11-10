@@ -31,7 +31,7 @@ const getRepositoryToken = (Entity: EntityClassOrSchema, DataSource?: DataSource
 		entityName = Entity.name;
 	}
 
-	return `ENTITY_${entityName}_${DEFAULT_DS_TOKEN}`;
+	return `ENTITY_${entityName}`;
 };
 
 export { getDataSourceToken, getRepositoryToken };

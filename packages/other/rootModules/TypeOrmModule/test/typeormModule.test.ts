@@ -27,10 +27,13 @@ const createTestServer = () => {
 
 const server: NactServer = createTestServer();
 
-describe("nactjs typeorm module testing", () => {
+describe("nactjs multiple typeorm module testing", () => {
 	beforeAll(async () => {
 		await server.offline();
 		//@ts-ignore
+	});
+	afterAll(() => {
+		server.emit("close");
 	});
 	test("ds can be initialized", async () => {
 		const res = await server.injectRequest({

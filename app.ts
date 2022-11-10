@@ -1,13 +1,10 @@
 import { Ip, Param, Query, Req, Get } from "./packages/core/decorators";
 import NactCors from "./packages/other/Middleware/Cors/middleware";
 import { NactRequest } from "./packages/core/nact-request/index";
-import { createModule, getTransferModule } from "./packages/core/module/index";
+import { createModule } from "./packages/core/module/index";
 
-import { Controller, useHandler, Handler } from "./packages/core/";
+import { Controller, useHandler, Handler, serverSettings } from "./packages/core/";
 import { NactServer, HttpExpection, HttpExpectionHandler } from "./packages/core";
-import { TypeORMModule } from "./packages/other/rootModules/TypeOrmModule";
-import { TypeormTestEntity } from "./packages/other/rootModules/TypeOrmModule/test/entity";
-import { TestTypeORMService } from "./packages/other/rootModules/TypeOrmModule/test/typeorm.service";
 
 class TestHttpExpection extends HttpExpection {
 	constructor() {
@@ -36,6 +33,10 @@ class ControllerTest {
 	@Get("123")
 	public GetHello(): any {
 		return { message: "Hello2" };
+	}
+
+	onApplicationShutdown() {
+		console.log("shutdown");
 	}
 }
 
@@ -75,12 +76,28 @@ class ApiController {
 	}
 }
 
+function createNactApp(transferModuleKey?: string, serverSetting?: serverSettings): NactServer {
+	const server = new NactServer(transferModuleKey, serverSetting);
+
+	process.on("SIGINT", () => {
+		server.emit("close");
+	});
+	process.on("SIGQUIT", () => {
+		server.emit("close");
+	});
+	process.on("SIGTERM", () => {
+		server.emit("close");
+	});
+
+	return server;
+}
+
 createModule({
-	controllers: [ControllerTest, ApiController, TestTypeORMService],
+	controllers: [ControllerTest, ApiController],
 });
 
 function App() {
-	const app = new NactServer();
+	const app = createNactApp();
 
 	app.useMiddleware(NactCors({ allowedOrigin: "http://localhost:3000" }));
 
