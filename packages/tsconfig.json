@@ -1,24 +1,26 @@
 {
     "compilerOptions": {
-      
+     
+      "target": "ES2022",
+      "module": "commonjs",
       
 
+      "declaration": true,
       "declarationMap": true,
       "emitDeclarationOnly": false,
 
-      "module": "commonjs",
-      "declaration": true,
-      "noImplicitAny": false,
+      "noLib": false,
       "skipLibCheck": true,
+      "importHelpers": true,
+
       "suppressImplicitAnyIndexErrors": true,
       "noUnusedLocals": false,
-      "importHelpers": true,
       "removeComments": false,
-      "noLib": false,
+
       "emitDecoratorMetadata": true,
       "experimentalDecorators": true,
+
       "useUnknownInCatchVariables": false,
-      "target": "ES2022",
       "sourceMap": false,
       "allowJs": false,
       "strict": true,
@@ -28,6 +30,8 @@
       "forceConsistentCasingInFileNames": true,
       "allowSyntheticDefaultImports": true,
       "strictPropertyInitialization": false,
+
+      "noImplicitAny": false,
   
     },
     "exclude": [

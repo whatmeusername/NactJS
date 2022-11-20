@@ -108,7 +108,7 @@ class TypeORMModule {
 		entities: EntityClassOrSchema[],
 		dataSource?: DataSource | string,
 	): NactCustomProviderSettings[] {
-		if (this.sourceLength > 0 && !dataSource) {
+		if (this.sourceLength > 1 && !dataSource) {
 			logger.error(
 				"TypeOrmModule cant use method 'getRepositories' without dataSource argument when using two or more datasources",
 			);

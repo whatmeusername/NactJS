@@ -72,8 +72,8 @@ class BaseHttpExpectionHandler extends HttpExpectionHandler {
 		const response = ctx.getResponse();
 		const res = isExpectionObject(expection)
 			? {
-					statusCode: expection.statusCode ?? HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR,
-					message: expection.message ?? HTTP_STATUS_MESSAGES.InternalServerError,
+				statusCode: expection.statusCode ?? HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR,
+				message: expection.message ?? HTTP_STATUS_MESSAGES.InternalServerError,
 			  }
 			: { statusCode: HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR, message: HTTP_STATUS_MESSAGES.InternalServerError };
 

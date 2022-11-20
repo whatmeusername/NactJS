@@ -11,9 +11,19 @@ import { getRequestURLInfo, getProtocol, getRequestIP, getHost, getOrigin } from
 import { NactUrlParseQuery, NactSendFileOption } from "./index";
 import { Socket } from "net";
 
+import { CookieSerializeOptions, serialize } from "cookie";
+import { sign } from "cookie-signature";
+
 const SendFileDefaultOption = {
 	disableWarning: false,
 };
+
+interface cookieOptions extends Omit<CookieSerializeOptions, "secure"> {
+	signed?: boolean;
+	secure?: boolean | "auto";
+	sameSite?: boolean | "lax" | "none" | "strict";
+	expires?: Date | undefined;
+}
 
 class RouteHandlerData {
 	private ControllerInstance: new (...args: any) => any;
@@ -60,6 +70,11 @@ class RouteHandlerData {
 	getRouteData(): RouteChild {
 		return this.routeData;
 	}
+}
+
+function isConnectionSecure(request: NactServerResponse) {
+	//@ts-ignore
+	return request?.socket?.encrypted === true || request.headers["x-forwarded-proto"] === "https";
 }
 
 class NactServerResponse extends ServerResponse {
@@ -144,11 +159,57 @@ class NactServerResponse extends ServerResponse {
 		if (!this.isSended()) this.setHeader("Content-Length", length);
 		return this;
 	}
+
+	cookie(ctx: NactRequest, cookieName: string, cookieValue: string, options?: cookieOptions) {
+		try {
+			const request = ctx.getRequest();
+			const response = ctx.getResponse();
+
+			options = options ? options : {};
+			if (options?.expires && Number.isInteger(options.expires)) {
+				options.expires = new Date(options.expires);
+			}
+
+			if (options?.signed && request.secret) {
+				cookieValue = sign(cookieValue, request.secret);
+			}
+			if (options?.secure === "auto") {
+				if (isConnectionSecure(response)) {
+					options.secure = true;
+				} else {
+					options.sameSite = "lax";
+					options.secure = false;
+				}
+			}
+
+			const serialized = serialize(cookieName, cookieValue, options as CookieSerializeOptions);
+			let setCookie = request.getHeader("Set-Cookie");
+			if (!setCookie) {
+				response.header("Set-Cookie", serialized);
+				return ctx;
+			}
+
+			if (typeof setCookie === "string") {
+				setCookie = [setCookie];
+			}
+
+			setCookie.push(serialized);
+			response.removeHeader("Set-Cookie");
+			response.header("Set-Cookie", setCookie);
+			return ctx;
+		} catch (err) {
+			console.log(err.message);
+		}
+	}
 }
 
 class NactIncomingMessage extends IncomingMessage {
 	protected body: any;
 	private ctx?: NactRequest | undefined;
+
+	public secret: string | undefined | null;
+	public cookies: { [K: string]: string } | undefined | null;
+	public signedCookies: { [K: string]: string } | undefined | null;
 
 	constructor(socket: Socket) {
 		super(socket);

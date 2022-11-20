@@ -4,6 +4,7 @@
       
       "experimentalDecorators": true,
       "emitDecoratorMetadata": true,
+      "useUnknownInCatchVariables": false,
       
       "importHelpers": true,
       "module": "commonjs",
@@ -21,12 +22,12 @@
       "emitDeclarationOnly": false,
       "outDir": "dist",
       "sourceMap": true,
-      "removeComments": true,
     },
     "exclude": [
+      "node_modules",
       "./coverage/",
       "**/*.config.js",
-      "**/*.config.cjs"
+      "**/*.config.cjs",
     ]
   }
   

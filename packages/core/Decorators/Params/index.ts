@@ -3,3 +3,4 @@ export * from "./Param";
 export * from "./Query";
 export * from "./Req";
 export * from "./Body";
+export * from "./Ctx";

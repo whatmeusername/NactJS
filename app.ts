@@ -1,10 +1,27 @@
 import { Ip, Param, Query, Req, Get } from "./packages/core/decorators";
 import NactCors from "./packages/other/Middleware/Cors/middleware";
-import { NactRequest } from "./packages/core/nact-request/index";
+import { NactRequest, NactServerResponse } from "./packages/core/nact-request/index";
 import { createModule } from "./packages/core/module/index";
+import { createNactApp, MiddleType } from "./packages/core/application";
 
-import { Controller, useHandler, Handler, serverSettings } from "./packages/core/";
-import { NactServer, HttpExpection, HttpExpectionHandler } from "./packages/core";
+import {
+	HttpExpection,
+	HttpExpectionHandler,
+	Controller,
+	useHandler,
+	Handler,
+	Ctx,
+	NactMiddlewareFunc,
+} from "./packages/core";
+
+import { config } from "dotenv";
+config();
+
+// temp
+import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
+
+import argon2 from "argon2";
 
 class TestHttpExpection extends HttpExpection {
 	constructor() {
@@ -27,16 +44,24 @@ class ControllerTest {
 	}
 
 	@Get("test")
-	public getTest() {
+	public async getTest(@Ctx ctx: NactRequest) {
+		const authCookie = ctx.getRequest()?.cookies?.["authorized"];
+		if (authCookie) {
+			const data: { username: string; password: string } = jwt.decode(authCookie) as any;
+			console.log(data.password);
+			console.log(await argon2.verify(data.password, "123456admin"));
+			console.log(await argon2.verify(data.password, "12345admin"));
+		}
+		const test = { username: "admin", password: await argon2.hash("12345admin") };
+
+		const res = jwt.sign(test, process.env.JWT_SECRET ?? "");
+		const verify = jwt.verify(res, process.env.JWT_SECRET ?? "");
+		ctx.getResponse().cookie(ctx, "authorized", res, { httpOnly: true });
 		return { message: this.test };
 	}
 	@Get("123")
 	public GetHello(): any {
 		return { message: "Hello2" };
-	}
-
-	onApplicationShutdown() {
-		console.log("shutdown");
 	}
 }
 
@@ -76,22 +101,6 @@ class ApiController {
 	}
 }
 
-function createNactApp(transferModuleKey?: string, serverSetting?: serverSettings): NactServer {
-	const server = new NactServer(transferModuleKey, serverSetting);
-
-	process.on("SIGINT", () => {
-		server.emit("close");
-	});
-	process.on("SIGQUIT", () => {
-		server.emit("close");
-	});
-	process.on("SIGTERM", () => {
-		server.emit("close");
-	});
-
-	return server;
-}
-
 createModule({
 	controllers: [ControllerTest, ApiController],
 });
@@ -100,8 +109,11 @@ function App() {
 	const app = createNactApp();
 
 	app.useMiddleware(NactCors({ allowedOrigin: "http://localhost:3000" }));
+	app.useMiddleware(cookieParser(process.env.COOKIE_SECRET) as any, "express");
 
 	app.listen(8000);
 }
 
 App();
+
+//openssl rand -base64 172 | tr -d '\ n'

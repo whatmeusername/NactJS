@@ -14,20 +14,42 @@ import { createNewTransferModule, getTransferModule, NactTransferModule } from "
 import type { InjectRequest, NactListernerEvent, serverSettings } from "./interface";
 import { HttpExpectionHandler, BaseHttpExpectionHandler } from "../expections";
 
-function runMiddlewares(middlewares: Array<(req: NactRequest) => void>, NactRequest: NactRequest): boolean {
+function runMiddlewares(middlewares: NactMiddleWare<MiddleType>[], NactRequest: NactRequest): boolean {
+	function next(value: string): void {
+		if (value === "route") {
+			end = true;
+		} else if (typeof value === "string") {
+			// TODO: THROW NACT ERRORS;
+			throw new Error(value);
+		}
+	}
+
+	let end = false;
+
 	for (let i = 0; i < middlewares.length; i++) {
+		if (end) break;
 		if (!NactRequest.isSended()) {
-			const middleware = middlewares[i];
-			middleware(NactRequest);
+			const data = middlewares[i];
+			const middleware = data.middleware;
+			if (data.type === "nact") {
+				(middleware as NactMiddlewareFunc<"nact">)(NactRequest);
+			} else {
+				(middleware as NactMiddlewareFunc)(NactRequest.getRequest(), NactRequest.getResponse(), next);
+			}
 		} else return false;
 	}
 	return true;
 }
 
-type NactMiddleware = (req: NactRequest) => any;
+export type MiddleType = "nact" | "express" | "fastify";
+
+export type NactMiddlewareFunc<T extends void | MiddleType = void> = T extends "nact"
+	? (req: NactRequest) => any
+	: (req: NactIncomingMessage, res: NactServerResponse, next: any) => any;
+export type NactMiddleWare<T extends MiddleType> = { middleware: NactMiddlewareFunc<T>; type: T };
 
 class NactGlobalConfig {
-	private middleware: NactMiddleware[];
+	private middleware: NactMiddleWare<MiddleType>[];
 	private handlers: any[];
 	// handlers
 	// guards
@@ -38,7 +60,7 @@ class NactGlobalConfig {
 		this.handlers = [];
 	}
 
-	getGlobalMiddleware(): NactMiddleware[] {
+	getGlobalMiddleware(): NactMiddleWare<MiddleType>[] {
 		return this.middleware;
 	}
 
@@ -70,11 +92,13 @@ class NactGlobalConfig {
 		}
 	}
 
-	addGlobalMiddleware(middleware: NactMiddleware | NactMiddleware[]): void {
+	addGlobalMiddleware(middleware: NactMiddlewareFunc<typeof type>, type: MiddleType = "nact"): void {
 		if (Array.isArray(middleware)) {
+			const res: NactMiddleWare<typeof type> = { middleware: middleware, type: type ?? "nact" };
 			this.middleware = [...this.middleware, ...middleware];
 		} else {
-			this.middleware.push(middleware);
+			const res = { middleware: middleware, type: type ?? "nact" };
+			this.middleware.push(res);
 		}
 	}
 }
@@ -133,8 +157,11 @@ class NactServer {
 		return this.GlobalConfig;
 	}
 
-	public useMiddleware(middleware: (req: NactRequest) => void): this {
-		this.GlobalConfig.addGlobalMiddleware(middleware);
+	public useMiddleware(
+		middleware: NactMiddlewareFunc<typeof type>,
+		type: "express" | "fastify" | "nact" = "nact",
+	): this {
+		this.GlobalConfig.addGlobalMiddleware(middleware, type);
 		this.logger.info(`"${middleware.name ?? "NAME IS UNKNOWN"}" function is now used as global middleware`, "MIDDLEWARE");
 		return this;
 	}
