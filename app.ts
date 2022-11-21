@@ -22,6 +22,7 @@ import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 
 import argon2 from "argon2";
+import { Post } from "./packages/core/dist/decorators/Method/Methods";
 
 class TestHttpExpection extends HttpExpection {
 	constructor() {
@@ -43,6 +44,7 @@ class ControllerTest {
 		this.test = "Hello world";
 	}
 
+	@Post("test")
 	@Get("test")
 	public async getTest(@Ctx ctx: NactRequest) {
 		const authCookie = ctx.getRequest()?.cookies?.["authorized"];

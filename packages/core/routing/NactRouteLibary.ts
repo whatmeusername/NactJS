@@ -25,7 +25,7 @@ import {
 } from "../index";
 import type { NactRouteWare, PathWalkerParams } from "./interface";
 import type { NactLogger, NactRequest, NactRouteConfig } from "../index";
-import { NactRouter } from "./router-class";
+import { NactRouter, NactRouterChild } from "./router-class";
 
 type ClassInst = { new (): any };
 type ObjectType<T> = { [K: string]: T };
@@ -106,6 +106,42 @@ class NactRouteLibrary {
 			return [];
 		};
 
+		const sortRoutes = (router: NactRouter): void => {
+			let sort: { a: NactRouterChild[]; wnr: NactRouterChild[]; wr: NactRouterChild[]; opt: NactRouterChild[] } = {
+				a: [],
+				wnr: [],
+				wr: [],
+				opt: [],
+			};
+
+			//@ts-ignore
+			for (let i = 0; i < router.child.length; i++) {
+				//@ts-ignore
+				const c = router.child[i];
+				const d = c.RouteChild;
+
+				if (d.absolute) {
+					sort["a"].push(c);
+				} else if (d.dynamicIndexes.length > 0 && !d.isRegex && !d.hasOptional) {
+					sort["wnr"].push(c);
+				} else if (d.dynamicIndexes.length > 0 && d.isRegex && !d.hasOptional) {
+					sort["wr"].push(c);
+				} else {
+					sort["opt"].push(c);
+				}
+			}
+			//@ts-ignore
+			router.child = Object.values(sort).flat(1);
+		};
+
+		const LogRegisteredRoutes = (messages: string[], constructor: (...args: any[]) => any): void => {
+			this.__logger.log(
+				`successfully registered "${constructor.name}" controller with routes methods with names: \n"${messages.join(
+					", ",
+				)}". \nTotal: ${messages.length} routes`,
+			);
+		};
+
 		controllerClass = Array.isArray(controllerClass) ? controllerClass : [controllerClass];
 
 		controllerClass.forEach((controller) => {
@@ -123,6 +159,7 @@ class NactRouteLibrary {
 				for (let i = 0; i < contorllerDescriptorKeys.length; i++) {
 					const descriptorKey = contorllerDescriptorKeys[i];
 					const routeData: NactRouteData | undefined = this.getRouteMetadata(controllerConstructor, descriptorKey);
+
 					if (routeData) {
 						const routeMethodsData = Object.values(routeData);
 						for (let i = 0; i < routeMethodsData.length; i++) {
@@ -163,13 +200,8 @@ class NactRouteLibrary {
 					}
 				}
 
-				this.__logger.log(
-					`successfully registered "${
-						controllerConstructor.name
-					}" controller with routes methods with names: \n"${registeredRoutesMessage.join(", ")}". \nTotal: ${
-						registeredRoutesMessage.length
-					} routes`,
-				);
+				sortRoutes(controllerData);
+				LogRegisteredRoutes(registeredRoutesMessage, controllerConstructor);
 			}
 		});
 	}

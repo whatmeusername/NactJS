@@ -28,11 +28,12 @@ function findRouteByParams(Router: NactRouter, lookfor: PathWalkerParams): Route
 
 	for (let i = 0; i < routeChilds.length; i++) {
 		const route = routeChilds[i];
-		if (route.method === method) {
-			const mathcing = diffRouteSchemas(route, lookfor.path);
+		const routeData = route.RouteChild;
+		if (routeData.method === method) {
+			const mathcing = diffRouteSchemas(routeData, lookfor.path);
 			if (mathcing === "optional") {
-				optionalRoutes.push(route);
-			} else if (mathcing === "pass") return route;
+				optionalRoutes.push(routeData);
+			} else if (mathcing === "pass") return routeData;
 		}
 	}
 	if (optionalRoutes.length > 0) {
@@ -48,7 +49,6 @@ function diffRouteSchemas(Route: RouteChild, lookup: ChildRouteSchema | string[]
 
 	if (s1.length >= lookup.length) {
 		for (let i = 0; i < s1.length; i++) {
-			// TODO: CONTINUE ONLY WITH OPTIONAL ON
 			if (isPassed === "pass" || isPassed === "optional") {
 				const routePathSeg = s1[i];
 
@@ -93,6 +93,7 @@ function getRouteData(path: string | RegExp, method: HTTPMethods | string, prope
 	let clearedPath = path.toString();
 	let pathSchema: ChildRouteSchema = [];
 	let isAbsolute = false;
+	let hasOptional = false;
 	let dynamicIndexes: number[] = [];
 	const isRegex = path instanceof RegExp;
 
@@ -109,6 +110,9 @@ function getRouteData(path: string | RegExp, method: HTTPMethods | string, prope
 			} else if (seg?.regexp) {
 				isAbsolute = false;
 			}
+			if (seg.optional) {
+				hasOptional = true;
+			}
 		});
 	} else if (isRegex) {
 		pathSchema = [{ name: null, regexp: path as RegExp }];
@@ -121,6 +125,7 @@ function getRouteData(path: string | RegExp, method: HTTPMethods | string, prope
 		absolute: isAbsolute,
 		schema: pathSchema,
 		dynamicIndexes: dynamicIndexes,
+		hasOptional: hasOptional,
 	};
 
 	if (isRegex) data.isRegex = true;

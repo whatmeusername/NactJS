@@ -3,8 +3,13 @@ import type { RouteChild } from "./interface";
 
 import { ControllerExpectionsHandler } from "../expections";
 
+interface NactRouterChild {
+	rn: string;
+	RouteChild: RouteChild;
+}
+
 class NactRouter {
-	private child: { [K: string]: RouteChild };
+	private child: NactRouterChild[];
 	private absolute: string[];
 	private expectionHandler: ControllerExpectionsHandler;
 	private instance: { new (): any };
@@ -12,7 +17,7 @@ class NactRouter {
 	constructor(controller: { new (): any }, app: NactServer) {
 		this.instance = controller;
 		this.absolute = [];
-		this.child = {};
+		this.child = [];
 		this.expectionHandler = new ControllerExpectionsHandler(app, controller);
 	}
 
@@ -26,20 +31,21 @@ class NactRouter {
 
 	addRoute(route: RouteChild): void {
 		const routerName = route.path + "#" + route.method;
-		if (!this.child[routerName]) {
-			this.child[routerName] = route;
+		if (!this.child.find((r) => r.rn === routerName)) {
+			const d = { rn: routerName, RouteChild: route };
+			this.child.push(d);
 			if (route.absolute) {
 				this.absolute.push(routerName);
 			}
 		}
 	}
 
-	getChild(): { [K: string]: RouteChild };
+	getChild(): NactRouterChild[];
 	getChild(path?: string, method?: string | null): RouteChild | undefined;
-	getChild(path?: string, method?: string | null): { [K: string]: RouteChild } | undefined | RouteChild {
+	getChild(path?: string, method?: string | null): NactRouterChild[] | undefined | RouteChild {
 		if (path) {
 			const name = method ? path + "#" + method : path;
-			return this.child[name];
+			return this.child.find((c) => c.rn === name)?.RouteChild;
 		}
 		return this.child;
 	}
@@ -54,4 +60,4 @@ class NactRouter {
 	}
 }
 
-export { NactRouter };
+export { NactRouter, NactRouterChild };

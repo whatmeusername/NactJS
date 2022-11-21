@@ -1,6 +1,4 @@
-import type { NactConfigItem } from "../routing";
-import { isClassInstance, isInitializedClass } from "../shared";
-import type { HttpExpectionHandler } from "./base-http-expection-handler.handler";
+import { isClassInstance } from "../shared";
 import type { HttpExpection } from "./base-http-expection.expection";
 
 function getNamesForExpectionHandler(
@@ -20,29 +18,4 @@ function getNamesForExpectionHandler(
 	return res;
 }
 
-function mapHandlers(
-	handlers: ({ new (): HttpExpectionHandler } | HttpExpectionHandler)[],
-	storeAt: NactConfigItem[],
-): NactConfigItem[] {
-	for (let i = 0; i < handlers.length; i++) {
-		const handler = handlers[i];
-		let inject = false;
-		let name = "";
-		const isInitialized = isInitializedClass(handler);
-		if (!isInitialized) {
-			inject = true;
-			name = (handler as { new (): any }).name;
-		} else {
-			inject = false;
-			name = (handler as new () => any).constructor.name;
-		}
-		storeAt.push({
-			name: name,
-			inject: inject,
-			instance: handler as any,
-		});
-	}
-	return storeAt;
-}
-
-export { getNamesForExpectionHandler, mapHandlers };
+export { getNamesForExpectionHandler };

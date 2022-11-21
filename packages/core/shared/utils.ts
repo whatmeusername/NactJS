@@ -9,6 +9,10 @@ function isClassInstance(object: any): boolean {
 	);
 }
 
+function isFunc(value: any): value is Function {
+	return typeof value === "function";
+}
+
 function isUndefined(object: any): object is undefined {
 	return object === undefined;
 }
@@ -44,6 +48,7 @@ const removeSlashes = (string: string): string => {
 export {
 	isInitializedClass,
 	isClassInstance,
+	isFunc,
 	isObject,
 	isDefined,
 	isNull,

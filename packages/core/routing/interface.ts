@@ -52,6 +52,7 @@ interface RouteChild {
 	schema: ChildRouteSchema;
 	dynamicIndexes: number[];
 	isRegex?: boolean;
+	hasOptional: boolean;
 }
 
 interface PathWalkerParams {

@@ -8,6 +8,7 @@ import { isInitializedClass } from "../shared";
 import { HttpExpectionHandler } from "./base-http-expection-handler.handler";
 import { HttpExpection } from "./base-http-expection.expection";
 import { ROUTE__CONFIG } from "../nact-constants";
+import { HANDLER_VAR_NAME } from "../decorators";
 
 function mapHandlers(handlers: NactRouteWare | undefined): HttpExpectionHandler[] {
 	const res: HttpExpectionHandler[] = [];
@@ -48,13 +49,13 @@ class ControllerExpectionsHandler {
 		const global = app.getGlobalConfig().getHandlers();
 
 		const controller = getRouteConfig(this.router);
-		const contorllerInstances: HttpExpectionHandler[] = mapHandlers(controller?.handlers);
+		const contorllerInstances: HttpExpectionHandler[] = mapHandlers(controller?.[HANDLER_VAR_NAME]);
 		this.handlers = [...contorllerInstances, ...global];
 	}
 
 	handle(expection: HttpExpection, ctx: NactRequest): boolean {
 		const routeMethod = ctx.getHandler();
-		const methodHandlers = Reflect.getMetadata(ROUTE__CONFIG, routeMethod ?? {})?.handlers;
+		const methodHandlers = Reflect.getMetadata(ROUTE__CONFIG, routeMethod ?? {})?.[HANDLER_VAR_NAME];
 
 		const instances: HttpExpectionHandler[] = mapHandlers(methodHandlers);
 		const orderedFilters: HttpExpectionHandler[] = [...instances, ...this.handlers];
