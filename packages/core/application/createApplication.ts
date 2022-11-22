@@ -1,6 +1,9 @@
 import { serverSettings } from "./interface";
 import { NactServer } from "./nact-application";
 
+import { config } from "dotenv";
+config();
+
 function createNactApp(transferModuleKey?: string, serverSetting?: serverSettings): NactServer {
 	const server = new NactServer(transferModuleKey, serverSetting);
 

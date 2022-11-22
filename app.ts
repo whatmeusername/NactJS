@@ -1,28 +1,17 @@
-import { Ip, Param, Query, Req, Get } from "./packages/core/decorators";
+import { Ip, Param, Query, Req, Get, Post } from "./packages/core/decorators";
 import NactCors from "./packages/other/Middleware/Cors/middleware";
-import { NactRequest, NactServerResponse } from "./packages/core/nact-request/index";
+import { NactRequest } from "./packages/core/nact-request/index";
 import { createModule } from "./packages/core/module/index";
-import { createNactApp, MiddleType } from "./packages/core/application";
+import { createNactApp } from "./packages/core/application";
 
-import {
-	HttpExpection,
-	HttpExpectionHandler,
-	Controller,
-	useHandler,
-	Handler,
-	Ctx,
-	NactMiddlewareFunc,
-} from "./packages/core";
-
-import { config } from "dotenv";
-config();
+import { HttpExpection, HttpExpectionHandler, Controller, useHandler, Handler, Ctx, useGuard } from "./packages/core";
 
 // temp
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 
 import argon2 from "argon2";
-import { Post } from "./packages/core/dist/decorators/Method/Methods";
+import { NactGuard } from "./packages/core/guard";
 
 class TestHttpExpection extends HttpExpection {
 	constructor() {
@@ -37,7 +26,20 @@ class TestHandler extends HttpExpectionHandler {
 	}
 }
 
+function testGuard(): boolean {
+	console.log("guard");
+	return true;
+}
+
+class TestGuard extends NactGuard {
+	validate(ctx: NactRequest): boolean {
+		console.log("Hello");
+		return true;
+	}
+}
+
 @Controller()
+@useGuard(TestGuard)
 class ControllerTest {
 	test: string;
 	constructor() {
@@ -46,6 +48,7 @@ class ControllerTest {
 
 	@Post("test")
 	@Get("test")
+	@useGuard(TestGuard)
 	public async getTest(@Ctx ctx: NactRequest) {
 		const authCookie = ctx.getRequest()?.cookies?.["authorized"];
 		if (authCookie) {

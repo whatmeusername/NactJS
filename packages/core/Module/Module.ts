@@ -359,13 +359,13 @@ class NactModule {
 
 	protected __registerProvider = (provider: any | NactCustomProvider): ProviderData | undefined => {
 		if (isInjectable(provider) && isClassInstance(provider)) {
-			if (!this.getProvider(provider.name)) {
-				const isInitialized = isInitializedClass(provider);
+			const isInitialized = isInitializedClass(provider);
+			const providerName = isInitialized ? provider.constructor.name : provider.name;
+			if (!this.getProvider(providerName)) {
 				let isResolved = isInitialized ? true : this.__isUsingUnresolvedImports(provider) ? false : true;
-
 				const providerData: ProviderData = {} as ProviderData;
 
-				providerData.name = provider.name;
+				providerData.name = isInitialized ? provider.constructor.name : provider.name;
 				providerData.uniqueToken = this.setUniqueToken(provider, PROVIDER_TOKEN) as string;
 
 				if (!isInitialized && isResolved) {

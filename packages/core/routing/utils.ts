@@ -279,6 +279,7 @@ function getRouteConfig(target: any, descriptorKey?: string): NactRouteConfig | 
 			return Reflect.getMetadata(ROUTE__CONFIG, target);
 		}
 	}
+	return Reflect.getMetadata(ROUTE__CONFIG, target);
 }
 
 function setRouteConfig(config: NactRouteConfig, target: any, descriptorKey?: string): void {

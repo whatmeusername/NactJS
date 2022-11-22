@@ -149,6 +149,7 @@ class NactRouteLibrary {
 			const contorllerRoutePath = getControllerPath(controllerConstructor);
 
 			handleRouteDataInjections(controller);
+
 			if (contorllerRoutePath) {
 				const controllerData: NactRouter = new NactRouter(controller, this.app);
 				this.__routes[contorllerRoutePath] = controllerData;
@@ -162,12 +163,14 @@ class NactRouteLibrary {
 
 					if (routeData) {
 						const routeMethodsData = Object.values(routeData);
+						handleRouteDataInjections(controller, descriptorKey);
 						for (let i = 0; i < routeMethodsData.length; i++) {
 							const methodData = routeMethodsData[i];
 							const methodPathsData = methodData.data;
 							let routesPaths = methodData.paths;
 
 							routesPaths = routesPaths.map((path) => addPrefixToPath(path, contorllerRoutePath));
+
 							const routePathData = this.getOrSetMetadataForRoute(
 								controller,
 								descriptorKey,
@@ -295,11 +298,11 @@ class NactRouteLibrary {
 				for (let i = 0; i < pathsLength; i++) {
 					let path = paths[i];
 					path = isUndefined(path) ? "/" : path;
-					handleRouteDataInjections(controller, descriptorKey);
 
 					const routeData = getRouteData(path, methodData.method, descriptorKey);
 					routeMetaData.push(routeData);
 				}
+
 				Reflect.defineMetadata(ROUTE__PATHS, metadata, controller.constructor, descriptorKey);
 				return methodData;
 			}

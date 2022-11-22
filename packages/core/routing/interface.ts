@@ -1,6 +1,8 @@
-import type { NactLogger } from "../index";
+import type { MiddleType, NactLogger } from "../index";
 
 import type { NactRouter } from "../routing/index";
+
+import { GUARDS_VAR_NAME, MIDDLEWARE_VAR_NAME, AFTERWARE_VAR_NAME } from "../decorators";
 
 type HTTPMethods = "GET" | "POST" | "HEAD" | "PUT" | "DELETE" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH";
 
@@ -12,9 +14,13 @@ interface NactRoutes {
 	[K: string]: NactRouter;
 }
 
-interface NactRouteWare {
+interface NactRouteWare<T extends typeof MIDDLEWARE_VAR_NAME | typeof GUARDS_VAR_NAME | null = null> {
 	// processAt
-	fns: NactConfigItem[];
+	fns: (T extends null
+		? NactConfigItem
+		: T extends typeof MIDDLEWARE_VAR_NAME
+		? NactConfigItemMiddleWare
+		: NactConfigItem)[];
 }
 
 interface NactConfigItem {
@@ -23,7 +29,13 @@ interface NactConfigItem {
 	instance: { new (...args: any[]): any } | (new (...args: any[]) => any);
 }
 
+interface NactConfigItemMiddleWare extends NactConfigItem {
+	type: MiddleType;
+}
+
 interface NactRouteConfig {
+	guards?: NactRouteWare;
+	middleware?: NactRouteWare<typeof MIDDLEWARE_VAR_NAME>;
 	handlers?: NactRouteWare;
 }
 
@@ -73,4 +85,5 @@ export type {
 	NactRouteConfig,
 	NactRouteWare,
 	NactConfigItem,
+	NactConfigItemMiddleWare,
 };

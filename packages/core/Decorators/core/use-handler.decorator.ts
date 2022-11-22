@@ -3,6 +3,7 @@ import { NactRouteWare } from "../../routing";
 import type { HttpExpectionHandler } from "../../expections/index";
 import { ROUTE__CONFIG } from "../../nact-constants";
 import { mapWareInstance } from "../Utils";
+import type { NactGuard, NactGuardFunc } from "../../guard";
 
 const HANDLER_VAR_NAME = "handlers";
 const GUARDS_VAR_NAME = "guards";
@@ -53,7 +54,7 @@ function createWareDecorator<T extends any = null>(WareName: string) {
 const useHandler = createWareDecorator<{ new (...arg: any[]): HttpExpectionHandler } | HttpExpectionHandler>(
 	HANDLER_VAR_NAME,
 );
-const useGuard = createWareDecorator<(...args: any[]) => boolean>(GUARDS_VAR_NAME);
+const useGuard = createWareDecorator<NactGuardFunc | NactGuard | { new (): NactGuard }>(GUARDS_VAR_NAME);
 
 // TBD
 //const useMiddleware = createWareDecorator<(...args: any[]) => void>("middlewares");

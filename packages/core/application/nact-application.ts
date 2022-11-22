@@ -7,14 +7,31 @@ import { networkInterfaces } from "os";
 import { Socket } from "net";
 
 import { createSharedNactLogger, NactLogger } from "../nact-logger/logger";
-import { NactRouteLibrary } from "../routing/NactRouteLibary";
 import { NactRequest, NactServerResponse, NactIncomingMessage } from "../nact-request";
 import { createNewTransferModule, getTransferModule, NactTransferModule } from "../module";
 
-import type { InjectRequest, NactListernerEvent, serverSettings } from "./interface";
 import { HttpExpectionHandler, BaseHttpExpectionHandler } from "../expections";
+import { GUARDS_VAR_NAME, MIDDLEWARE_VAR_NAME, AFTERWARE_VAR_NAME } from "../decorators";
+import { NactGuard, NactGuardFunc } from "../guard";
 
-function runMiddlewares(middlewares: NactMiddleWare<MiddleType>[], NactRequest: NactRequest): boolean {
+import { NactRouteLibrary } from "../routing/NactRouteLibary";
+import { getRouteConfig } from "../routing/utils";
+import type { NactConfigItem, NactConfigItemMiddleWare } from "../routing/interface";
+
+import type { InjectRequest, NactListernerEvent, serverSettings } from "./interface";
+import { isClassInstance, isFunc } from "../shared/utils";
+
+export type MiddleType = "nact" | "express" | "fastify";
+
+export type NactMiddlewareFunc<T extends void | MiddleType = void> = T extends "nact"
+	? (req: NactRequest) => any
+	: (req: NactIncomingMessage, res: NactServerResponse, next: any) => any;
+export type NactMiddleWare<T extends MiddleType> = { middleware: NactMiddlewareFunc<T>; type: T };
+
+function runMiddlewares(
+	middlewares: (NactMiddleWare<MiddleType> | NactConfigItemMiddleWare)[],
+	NactRequest: NactRequest,
+): boolean {
 	function next(value: string): void {
 		if (value === "route") {
 			end = true;
@@ -30,8 +47,11 @@ function runMiddlewares(middlewares: NactMiddleWare<MiddleType>[], NactRequest: 
 		if (end) break;
 		if (!NactRequest.isSended()) {
 			const data = middlewares[i];
-			const middleware = data.middleware;
-			if (data.type === "nact") {
+			const middleware = (data as NactMiddleWare<MiddleType>)?.middleware
+				? (data as NactMiddleWare<MiddleType>).middleware
+				: (data as NactConfigItemMiddleWare).instance;
+
+			if (data?.type === "nact") {
 				(middleware as NactMiddlewareFunc<"nact">)(NactRequest);
 			} else {
 				(middleware as NactMiddlewareFunc)(NactRequest.getRequest(), NactRequest.getResponse(), next);
@@ -41,23 +61,27 @@ function runMiddlewares(middlewares: NactMiddleWare<MiddleType>[], NactRequest: 
 	return true;
 }
 
-export type MiddleType = "nact" | "express" | "fastify";
-
-export type NactMiddlewareFunc<T extends void | MiddleType = void> = T extends "nact"
-	? (req: NactRequest) => any
-	: (req: NactIncomingMessage, res: NactServerResponse, next: any) => any;
-export type NactMiddleWare<T extends MiddleType> = { middleware: NactMiddlewareFunc<T>; type: T };
+function runGuards(guards: (NactGuardFunc | NactConfigItem)[], NactRequest: NactRequest): boolean {
+	let res = true;
+	for (let i = 0; i < guards.length; i++) {
+		const guard = ((guards[i] as any)?.instance as NactGuard) ?? (guards[i] as NactGuardFunc);
+		res = (guard as any)?.validate ? (guard as NactGuard).validate(NactRequest) : (guard as any)(NactRequest);
+	}
+	return res;
+}
 
 class NactGlobalConfig {
 	private middleware: NactMiddleWare<MiddleType>[];
-	private handlers: any[];
-	// handlers
-	// guards
+	private handlers: HttpExpectionHandler[];
+	private guards: NactGuardFunc[];
+
 	// pipes
 	//afterware
+
 	constructor(private readonly server: NactServer) {
 		this.middleware = [];
 		this.handlers = [];
+		this.guards = [];
 	}
 
 	getGlobalMiddleware(): NactMiddleWare<MiddleType>[] {
@@ -68,26 +92,46 @@ class NactGlobalConfig {
 	getHandlers(name: string): HttpExpectionHandler | undefined;
 	getHandlers(name?: string): HttpExpectionHandler | HttpExpectionHandler[] | undefined {
 		if (name) {
-			return this.handlers.find((handler) => handler.name === name);
+			return this.handlers.find((handler) => (handler as any).name === name);
 		}
 		return this.handlers;
 	}
 
+	getGuards(): NactGuardFunc[] {
+		return this.guards;
+	}
+
 	addGlobalHandler(
 		handler: (new (...args: any[]) => HttpExpectionHandler) | (new (...args: any[]) => HttpExpectionHandler)[],
-	) {
+	): void {
 		const coreModule = this.server.getTransferModule().getCoreModule();
 		if (Array.isArray(handler)) {
 			handler.forEach((handler) => {
 				const provider = coreModule?.appendProvider(handler);
 				if (provider?.instance) {
-					this.handlers = [...this.handlers, ...provider.instance];
+					this.handlers.push(provider.instance);
 				}
 			});
 		} else {
 			const provider = coreModule?.appendProvider(handler);
 			if (provider?.instance) {
 				this.handlers.unshift(provider.instance);
+			}
+		}
+	}
+
+	addGlobalGuard(guards: NactGuardFunc[] | NactGuardFunc): void {
+		guards = Array.isArray(guards) ? guards : [guards];
+		const coreModule = this.server.getTransferModule().getCoreModule();
+		for (let i = 0; i < guards.length; i++) {
+			const guard = guards[i];
+			if (isClassInstance(guard)) {
+				const provider = coreModule?.appendProvider(guard);
+				if (provider?.instance) {
+					this.guards.push(provider.instance);
+				}
+			} else if (isFunc(guard)) {
+				this.guards.push(guard);
 			}
 		}
 	}
@@ -100,6 +144,44 @@ class NactGlobalConfig {
 			const res = { middleware: middleware, type: type ?? "nact" };
 			this.middleware.push(res);
 		}
+	}
+
+	executeWare(
+		direction: "after" | "before",
+		ctx: NactRequest,
+		target: object | ((...args: any[]) => any) | undefined,
+	): boolean {
+		if (!target) return false;
+
+		const ware = getRouteConfig(target);
+		let res = true;
+
+		if (ware) {
+			if (direction === "before") {
+				if (!ctx.isSended() && ware[MIDDLEWARE_VAR_NAME] && ware[MIDDLEWARE_VAR_NAME].fns.length > 0) {
+					runMiddlewares(ware[MIDDLEWARE_VAR_NAME].fns, ctx);
+				}
+				if (!ctx.isSended() && ware[GUARDS_VAR_NAME] && ware[GUARDS_VAR_NAME].fns.length > 0) {
+					res = runGuards(ware[GUARDS_VAR_NAME].fns, ctx);
+				}
+			}
+		}
+		return res;
+	}
+
+	executeGlobalWare(direction: "after" | "before", ctx: NactRequest): boolean {
+		let res = true;
+
+		if (direction === "before") {
+			if (!ctx.isSended() && this.middleware.length > 0) {
+				runMiddlewares(this.middleware, ctx);
+			}
+			if (!ctx.isSended() && this.guards.length > 0) {
+				// TODO GUARD RUNNER
+			}
+		}
+
+		return res;
 	}
 }
 
@@ -242,27 +324,31 @@ class NactServer {
 	};
 
 	protected async __executeRequest(request: NactRequest): Promise<NactRequest | undefined> {
-		if (runMiddlewares(this.GlobalConfig.getGlobalMiddleware(), request)) {
+		if (this.GlobalConfig.executeGlobalWare("before", request)) {
 			const HandlerRouter = this.RouteLibrary.getRouteMethodOr404(request);
 
 			const handlerData = request.getHandlerData();
 			if (HandlerRouter) {
-				const response = new Promise((resolve) => {
-					return resolve(handlerData?.callMethod());
-				});
+				if (this.GlobalConfig.executeWare("before", request, handlerData?.getHandlerClass())) {
+					if (this.GlobalConfig.executeWare("before", request, handlerData?.getHandler())) {
+						const response = new Promise((resolve) => {
+							return resolve(handlerData?.callMethod());
+						});
 
-				await response
-					.then((res: any) => {
-						request.setPayload(res);
-					})
-					.catch((err: any) => {
-						const routeConfig = HandlerRouter.getControllerHandler();
-						const isHandled = routeConfig.handle(err, request);
+						await response
+							.then((res: any) => {
+								request.setPayload(res);
+							})
+							.catch((err: any) => {
+								const routeConfig = HandlerRouter.getControllerHandler();
+								const isHandled = routeConfig.handle(err, request);
 
-						if (!isHandled) {
-							throw err;
-						}
-					});
+								if (!isHandled) {
+									throw err;
+								}
+							});
+					}
+				}
 			}
 		}
 
