@@ -7,5 +7,7 @@ export * from "./nact-request";
 export * from "./routing";
 export * from "./Reflector";
 export * from "./expections";
+export * from "./guard";
+export * from "./middleware";
 
 export * from "./application";

@@ -14,17 +14,13 @@ const logger = getNactLogger();
 
 function findRouteByParams(Router: NactRouter, lookfor: PathWalkerParams): RouteChild | null {
 	const routeChilds = Object.values(Router.getChild());
-	const absolutePaths = Router.getAbsolute();
+	const absolutePath = lookfor.path.join("/");
 	const optionalRoutes = [];
 	const method = lookfor.method;
-	const absolutePath = lookfor.path.join("/");
 
-	for (let i = 0; i < absolutePaths.length; i++) {
-		const nameWithMethod = absolutePaths[i] + "#" + method;
-		if (absolutePath === nameWithMethod) {
-			return Router.getChild(nameWithMethod) as RouteChild;
-		}
-	}
+	let route: RouteChild | undefined;
+	route = Router.getAbsoluteOrNull(absolutePath, method);
+	if (route) return route;
 
 	for (let i = 0; i < routeChilds.length; i++) {
 		const route = routeChilds[i];
@@ -36,6 +32,7 @@ function findRouteByParams(Router: NactRouter, lookfor: PathWalkerParams): Route
 			} else if (mathcing === "pass") return routeData;
 		}
 	}
+
 	if (optionalRoutes.length > 0) {
 		return optionalRoutes[optionalRoutes.length - 1];
 	}

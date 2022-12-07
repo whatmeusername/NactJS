@@ -1,7 +1,7 @@
 import type { NactRoutes, RouteChild, NactLibraryConfig } from "./index";
 
 // TODO REPLACE LATER
-import { removeSlashes } from "../shared/index";
+import { removeSlashes, isUndefined } from "../shared/index";
 import {
 	findRouteByParams,
 	getRouteData,
@@ -14,18 +14,16 @@ import {
 import {
 	getNactLogger,
 	ROUTE__PATHS,
-	NactRouteData,
-	NactRouteMethodData,
-	isUndefined,
 	getTransferModule,
 	ROUTE__PARAMS,
 	ROUTE__PARAMETER__METADATA,
-	RouteHandlerData,
 	NactServer,
 } from "../index";
+
 import type { NactRouteWare, PathWalkerParams } from "./interface";
-import type { NactLogger, NactRequest, NactRouteConfig } from "../index";
+import type { NactLogger, NactRequest, NactRouteConfig, NactRouteMethodData, NactRouteData } from "../index";
 import { NactRouter, NactRouterChild } from "./router-class";
+import { RouteHandlerData } from "../nact-request";
 
 type ClassInst = { new (): any };
 type ObjectType<T> = { [K: string]: T };
@@ -214,8 +212,7 @@ class NactRouteLibrary {
 		const method = params.method;
 		let route: RouteChild | null = null;
 
-		if (Router.hasAbsolute(absolutePath, method)) route = Router.getChild(absolutePath, method) as RouteChild;
-		else route = findRouteByParams(Router, params);
+		route = findRouteByParams(Router, params);
 
 		if (route) {
 			//@ts-ignore

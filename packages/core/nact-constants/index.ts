@@ -3,3 +3,4 @@ export * from "./HttpStatusCodes.const";
 export * from "./HttpStatusMessages.const";
 export * from "./module.consts";
 export * from "./router.const";
+export * from "./ware.consts";

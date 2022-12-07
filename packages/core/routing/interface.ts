@@ -1,8 +1,8 @@
-import type { MiddleType, NactLogger } from "../index";
-
+import type { NactLogger } from "../index";
+import type { MiddlewareType } from "../middleware";
 import type { NactRouter } from "../routing/index";
 
-import { GUARDS_VAR_NAME, MIDDLEWARE_VAR_NAME, AFTERWARE_VAR_NAME } from "../decorators";
+import { GUARDS_VAR_NAME, MIDDLEWARE_VAR_NAME } from "../nact-constants";
 
 type HTTPMethods = "GET" | "POST" | "HEAD" | "PUT" | "DELETE" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH";
 
@@ -30,7 +30,7 @@ interface NactConfigItem {
 }
 
 interface NactConfigItemMiddleWare extends NactConfigItem {
-	type: MiddleType;
+	type: MiddlewareType;
 }
 
 interface NactRouteConfig {

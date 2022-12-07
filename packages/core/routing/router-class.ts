@@ -58,6 +58,11 @@ class NactRouter {
 		const name = method ? path + "#" + method : path;
 		return this.absolute.includes(name);
 	}
+
+	getAbsoluteOrNull(path: string, method?: string | null): RouteChild | undefined {
+		const name = method ? path + "#" + method : path;
+		return this.child.find((c) => c.rn === name && c.RouteChild.absolute)?.RouteChild;
+	}
 }
 
 export { NactRouter, NactRouterChild };

@@ -8,7 +8,7 @@ import { isInitializedClass } from "../shared";
 import { HttpExpectionHandler } from "./base-http-expection-handler.handler";
 import { HttpExpection } from "./base-http-expection.expection";
 import { ROUTE__CONFIG } from "../nact-constants";
-import { HANDLER_VAR_NAME } from "../decorators";
+import { HANDLER_VAR_NAME } from "../nact-constants";
 
 function mapHandlers(handlers: NactRouteWare | undefined): HttpExpectionHandler[] {
 	const res: HttpExpectionHandler[] = [];

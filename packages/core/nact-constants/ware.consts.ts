@@ -1,0 +1,9 @@
+const HANDLER_VAR_NAME = "handlers";
+const GUARDS_VAR_NAME = "guards";
+
+const MIDDLEWARE_VAR_NAME = "middleware";
+const MIDDLEWARE_DECORATOR_TYPE = "nact__middleware__type";
+
+const AFTERWARE_VAR_NAME = "afterware";
+
+export { HANDLER_VAR_NAME, GUARDS_VAR_NAME, MIDDLEWARE_VAR_NAME, AFTERWARE_VAR_NAME, MIDDLEWARE_DECORATOR_TYPE };

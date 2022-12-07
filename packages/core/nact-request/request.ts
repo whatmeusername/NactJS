@@ -23,6 +23,7 @@ interface cookieOptions extends Omit<CookieSerializeOptions, "secure"> {
 	secure?: boolean | "auto";
 	sameSite?: boolean | "lax" | "none" | "strict";
 	expires?: Date | undefined;
+	removeOtherCookies?: boolean;
 }
 
 class RouteHandlerData {
@@ -77,6 +78,34 @@ function isConnectionSecure(request: NactServerResponse) {
 	return request?.socket?.encrypted === true || request.headers["x-forwarded-proto"] === "https";
 }
 
+function serializeCookie(ctx: NactRequest, cookieName: string, cookieValue: string, options?: cookieOptions): string {
+	try {
+		const request = ctx.getRequest();
+		const response = ctx.getResponse();
+
+		options = options ? options : {};
+		if (options?.expires && Number.isInteger(options.expires)) {
+			options.expires = new Date(options.expires);
+		}
+
+		if (options?.signed && request.secret) {
+			cookieValue = sign(cookieValue, request.secret);
+		}
+		if (options?.secure === "auto") {
+			if (isConnectionSecure(response)) {
+				options.secure = true;
+			} else {
+				options.sameSite = "lax";
+				options.secure = false;
+			}
+		}
+
+		return serialize(cookieName, cookieValue, options as CookieSerializeOptions);
+	} catch (Error) {
+		throw new Error();
+	}
+}
+
 class NactServerResponse extends ServerResponse {
 	private ctx?: NactRequest | undefined;
 
@@ -85,10 +114,14 @@ class NactServerResponse extends ServerResponse {
 		this.ctx = undefined;
 	}
 
-	set __ctx(ctx: NactRequest) {
+	set __ctx(ctx: NactRequest | undefined) {
 		if (!this.ctx) {
 			this.ctx = ctx;
 		}
+	}
+
+	get __ctx(): NactRequest | undefined {
+		return this.ctx;
 	}
 
 	getCtx(): NactRequest | undefined {
@@ -113,7 +146,7 @@ class NactServerResponse extends ServerResponse {
 	send(data?: any): NactServerResponse {
 		if (!this.isSended()) {
 			if (data) {
-				if (typeof data === "object") {
+				if (typeof data === "object" && data !== null && data !== undefined) {
 					return this.json(data);
 				} else {
 					const stringifyData = JSON.stringify(data);
@@ -122,7 +155,7 @@ class NactServerResponse extends ServerResponse {
 					this.ctx?.setPayload(data);
 					return this.end();
 				}
-			} else {
+			} else if (this.ctx?.getHandlerData()) {
 				this.status(HTTP_STATUS_CODES.NO_CONTENT);
 			}
 
@@ -160,46 +193,40 @@ class NactServerResponse extends ServerResponse {
 		return this;
 	}
 
-	cookie(ctx: NactRequest, cookieName: string, cookieValue: string, options?: cookieOptions) {
-		try {
-			const request = ctx.getRequest();
-			const response = ctx.getResponse();
+	clearCookie(name: string, options?: cookieOptions): NactServerResponse {
+		this.cookie(name, "", { expires: new Date(0), path: "/", ...options });
+		return this;
+	}
 
-			options = options ? options : {};
-			if (options?.expires && Number.isInteger(options.expires)) {
-				options.expires = new Date(options.expires);
-			}
+	cookie(cookieName: string, cookieValue: string, options?: cookieOptions): NactServerResponse {
+		if (this.ctx) {
+			options = !options ? {} : options;
 
-			if (options?.signed && request.secret) {
-				cookieValue = sign(cookieValue, request.secret);
-			}
-			if (options?.secure === "auto") {
-				if (isConnectionSecure(response)) {
-					options.secure = true;
-				} else {
-					options.sameSite = "lax";
-					options.secure = false;
-				}
-			}
-
-			const serialized = serialize(cookieName, cookieValue, options as CookieSerializeOptions);
-			let setCookie = request.getHeader("Set-Cookie");
-			if (!setCookie) {
-				response.header("Set-Cookie", serialized);
-				return ctx;
-			}
+			const request = this.ctx.getRequest();
+			const response = this.ctx.getResponse();
+			let setCookie = request.getHeader("Set-Cookie") ?? [];
 
 			if (typeof setCookie === "string") {
 				setCookie = [setCookie];
 			}
+			if (options?.removeOtherCookies) {
+				response.removeHeader("Set-Cookie");
+			} else {
+				const responseCookie = response.getHeader("Set-Cookie") ?? [];
+				if (typeof responseCookie !== "string" && Array.isArray(responseCookie))
+					setCookie = [...setCookie, ...responseCookie];
+				else setCookie.push(responseCookie as string);
+			}
 
-			setCookie.push(serialized);
-			response.removeHeader("Set-Cookie");
+			if (!options?.path) {
+				options.path = "/";
+			}
+
+			setCookie.push(serializeCookie(this.ctx, cookieName, cookieValue, options));
 			response.header("Set-Cookie", setCookie);
-			return ctx;
-		} catch (err) {
-			console.log(err.message);
 		}
+
+		return this;
 	}
 }
 
@@ -259,6 +286,8 @@ class NactRequest {
 	constructor(req: NactIncomingMessage, res: NactServerResponse) {
 		this.request = req;
 		this.response = res;
+		this.response.__ctx = this;
+
 		this.handler = null;
 		this.host = getHost(req);
 		this.origin = (req.getHeader("Origin") ?? getOrigin(req)) as string;
@@ -411,4 +440,4 @@ class NactRequest {
 	}
 }
 
-export { NactRequest, RouteHandlerData, NactServerResponse, NactIncomingMessage };
+export { NactRequest, RouteHandlerData, NactServerResponse, NactIncomingMessage, cookieOptions };
