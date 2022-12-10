@@ -1,6 +1,32 @@
-import { Controller, Get, useHandler } from "../../decorators";
+import { Controller, Get, useHandler, useMiddleware, useGuard } from "../../decorators";
 import { PageNotFoundException, InternalServerErrorExpection } from "../../expections/";
 import { TestExpectionHandler, TestExpectionHandler2 } from "./handlers";
+
+function ExpectionMiddleware() {
+	throw new PageNotFoundException();
+}
+
+function ExpectionGuard(): boolean {
+	if (true) {
+		throw new PageNotFoundException();
+	}
+	return false;
+}
+
+@Controller("decorator")
+class DecoratorExpections {
+	@Get("middleware")
+	@useMiddleware(ExpectionMiddleware)
+	public middleware() {
+		return true;
+	}
+
+	@Get("guard")
+	@useGuard(ExpectionGuard)
+	public guard() {
+		return true;
+	}
+}
 
 @Controller("expections")
 class ExpectionController {
@@ -42,4 +68,4 @@ class ClassExpectationsHandler {
 	}
 }
 
-export { ExpectionController, ClassExpectationsHandler };
+export { ExpectionController, ClassExpectationsHandler, DecoratorExpections };

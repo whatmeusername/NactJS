@@ -1,6 +1,6 @@
 import { isClassInstance } from "../../../shared/index";
 import { NactConfigItemMiddleWare, NactRouteWare } from "../../../routing";
-import { MIDDLEWARE_VAR_NAME, ROUTE__CONFIG } from "../../../nact-constants";
+import { MIDDLEWARE_DECORATOR_TYPE, ROUTE__CONFIG } from "../../../nact-constants";
 import { NactConfigItem } from "../../../routing";
 import { isInitializedClass, isFunc } from "../../../shared";
 import { Reflector } from "../../../Reflector";
@@ -19,8 +19,9 @@ function mapWareInstance(items: any[], storeAt: (NactConfigItem | NactConfigItem
 			other = item[1];
 			item = item[0];
 		}
-		if (item instanceof NactMiddleware) {
-			other = Reflector.get(MIDDLEWARE_VAR_NAME, item);
+
+		if (item?.prototype instanceof NactMiddleware) {
+			other = Reflector.get(MIDDLEWARE_DECORATOR_TYPE, item);
 		}
 
 		let isFuncType = isFunc(item);

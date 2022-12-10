@@ -1,55 +1,13 @@
-import { Ip, Param, Query, Req, Get, Post } from "./packages/core/decorators";
+import { Ip, Param, Query, Req, Get } from "./packages/core/decorators";
 import NactCors from "./packages/other/Middleware/Cors/middleware";
 import { NactRequest } from "./packages/core/nact-request/index";
 import { createModule } from "./packages/core/module/index";
 import { createNactApp } from "./packages/core/application";
 
-import {
-	HttpExpection,
-	HttpExpectionHandler,
-	Controller,
-	useHandler,
-	Handler,
-	Ctx,
-	useMiddleware,
-	NactIncomingMessage,
-	NactServerResponse,
-	Middleware,
-	useGuard,
-} from "./packages/core";
+import { Controller, Ctx } from "./packages/core";
 
 // temp
-import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
-
-import argon2 from "argon2";
-import { NactGuard } from "./packages/core/guard";
-import { NactMiddleware } from "./packages/core/middleware";
-
-class TestHttpExpection extends HttpExpection {
-	constructor() {
-		super(501, "got error");
-	}
-}
-
-@Handler(TestHttpExpection)
-class TestHandler extends HttpExpectionHandler {
-	catch(expection: HttpExpection, ctx: NactRequest) {
-		const response = ctx.getResponse();
-	}
-}
-
-@Middleware("express")
-class TestMiddleware extends NactMiddleware {
-	use(req?: NactIncomingMessage, res?: NactServerResponse, next?: any): void {}
-}
-
-class TestGuard extends NactGuard {
-	validate(ctx: NactRequest): boolean {
-		console.log("Hello");
-		return true;
-	}
-}
 
 @Controller()
 class ControllerTest {
@@ -65,7 +23,6 @@ class ControllerTest {
 }
 
 @Controller("api")
-@useHandler(TestHandler)
 class ApiController {
 	@Get("delete?", ":hello(^hi2$)")
 	Delete(@Param { hello }: any) {

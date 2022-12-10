@@ -1,6 +1,6 @@
 import { NactServer, isExpectionObject } from "../../";
 
-import { ExpectionController, ClassExpectationsHandler } from "./expection.service";
+import { ExpectionController, ClassExpectationsHandler, DecoratorExpections } from "./expection.service";
 
 let server: NactServer;
 const createTestServer = () => {
@@ -99,5 +99,39 @@ describe("Class method handler test", () => {
 
 		const payload = res?.getPayload();
 		expect(payload).toMatchObject({ statusCode: 200, message: "Internal server error", someValue: false });
+	});
+});
+
+describe("handling throwed expections from decorators", () => {
+	afterAll(() => {
+		server.clearModuleConfiguration();
+	});
+
+	beforeAll(async () => {
+		await server.clearModuleConfiguration((key, tm) => {
+			tm.useModule({
+				controllers: [DecoratorExpections],
+			});
+		});
+	});
+
+	test("handling expection in middleware", async () => {
+		const res = await server.injectRequest({
+			method: "GET",
+			url: "/decorator/middleware/",
+		});
+
+		const payload = res?.getPayload();
+		expect(payload).toMatchObject({ statusCode: 404, message: "Page not found" });
+	});
+
+	test("handling expection in guard", async () => {
+		const res = await server.injectRequest({
+			method: "GET",
+			url: "/decorator/guard/",
+		});
+
+		const payload = res?.getPayload();
+		expect(payload).toMatchObject({ statusCode: 404, message: "Page not found" });
 	});
 });

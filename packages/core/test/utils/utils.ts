@@ -125,4 +125,14 @@ function getProviderFromTransfer(
 	return transferModule.getProviderFromLocationByName(service);
 }
 
-export { NactResponseTestingUtil, ErrorStringIsNactError, getValueFromTestInstance, getProviderFromTransfer };
+function createNactTestingUtil(NactRequest: NactRequest | undefined) {
+	return new NactResponseTestingUtil(NactRequest);
+}
+
+export {
+	NactResponseTestingUtil,
+	createNactTestingUtil,
+	ErrorStringIsNactError,
+	getValueFromTestInstance,
+	getProviderFromTransfer,
+};

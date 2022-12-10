@@ -10,7 +10,7 @@ import { createSharedNactLogger, NactLogger } from "../nact-logger/logger";
 import { NactRequest, NactServerResponse, NactIncomingMessage } from "../nact-request";
 import { createNewTransferModule, getTransferModule, NactTransferModule } from "../module";
 
-import { HttpExpectionHandler, BaseHttpExpectionHandler } from "../expections";
+import { HttpExpectionHandler, BaseHttpExpectionHandler, HttpExpection } from "../expections";
 import { GUARDS_VAR_NAME, MIDDLEWARE_VAR_NAME } from "../nact-constants";
 import { NactGuard, NactGuardFunc } from "../guard";
 
@@ -20,7 +20,7 @@ import type { NactConfigItem, NactConfigItemMiddleWare } from "../routing/interf
 
 import type { InjectRequest, NactListernerEvent, serverSettings } from "./interface";
 import { isClassInstance, isFunc } from "../shared/utils";
-import { MiddlewareType, NactMiddleware, NactMiddlewareFunc, NactMiddlewareObject } from "../middleware";
+import { MiddlewareType, NactMiddlewareFunc, NactMiddlewareObject } from "../middleware";
 
 function runMiddlewares(
 	middlewares: (NactMiddlewareObject<MiddlewareType> | NactConfigItemMiddleWare)[],
@@ -41,11 +41,12 @@ function runMiddlewares(
 		if (end) break;
 		if (!NactRequest.isSended()) {
 			const data = middlewares[i];
-			const middleware = (data as NactMiddlewareObject<MiddlewareType>)?.middleware
-				? (data as NactMiddlewareObject<MiddlewareType>).middleware
-				: (data as NactConfigItemMiddleWare).instance;
+
+			let middleware = (data as any)?.middleware ? (data as any).middleware : (data as any).instance;
+			if (middleware?.use) middleware = middleware.use;
 
 			let params: any[] = [];
+
 			if (!data?.type || data?.type === "nact") {
 				params = [NactRequest];
 			} else {
@@ -177,7 +178,6 @@ class NactGlobalConfig {
 				runMiddlewares(this.middleware, ctx);
 			}
 			if (!ctx.isSended() && this.guards.length > 0) {
-				// TODO GUARD RUNNER
 			}
 		}
 
@@ -323,36 +323,46 @@ class NactServer {
 		});
 	};
 
-	protected async __executeRequest(request: NactRequest): Promise<NactRequest | undefined> {
-		if (this.GlobalConfig.executeGlobalWare("before", request)) {
-			const HandlerRouter = this.RouteLibrary.getRouteMethodOr404(request);
+	protected async __executeRequest(ctx: NactRequest): Promise<NactRequest | undefined> {
+		let isRunned = false;
+		let HandlerRouter;
+		try {
+			if (this.GlobalConfig.executeGlobalWare("before", ctx)) {
+				HandlerRouter = this.RouteLibrary.getRouteMethodOr404(ctx);
 
-			const handlerData = request.getHandlerData();
-			if (HandlerRouter) {
-				if (this.GlobalConfig.executeWare("before", request, handlerData?.getHandlerClass())) {
-					if (this.GlobalConfig.executeWare("before", request, handlerData?.getHandler())) {
-						const response = new Promise((resolve) => {
-							return resolve(handlerData?.callMethod());
-						});
-
-						await response
-							.then((res: any) => {
-								request.setPayload(res);
-							})
-							.catch((err: any) => {
-								const routeConfig = HandlerRouter.getControllerHandler();
-								const isHandled = routeConfig.handle(err, request);
-
-								if (!isHandled) {
-									throw err;
-								}
+				const handlerData = ctx.getHandlerData();
+				if (HandlerRouter) {
+					if (this.GlobalConfig.executeWare("before", ctx, handlerData?.getHandlerClass())) {
+						if (this.GlobalConfig.executeWare("before", ctx, handlerData?.getHandler())) {
+							isRunned = true;
+							const response = await new Promise((resolve) => {
+								return resolve(handlerData?.callMethod());
 							});
+							ctx.setPayload(response);
+						}
 					}
 				}
 			}
+		} catch (err: any) {
+			if (HandlerRouter && err instanceof HttpExpection) {
+				let isHandled = false;
+				if (isRunned) {
+					const routeConfig = HandlerRouter.getControllerHandler();
+					isHandled = routeConfig.handle(err, ctx);
+				} else {
+					const globalHandlers = this.GlobalConfig.getHandlers();
+					for (let i = 0; i < globalHandlers.length; i++) {
+						isHandled = globalHandlers[i].accept(err, ctx);
+					}
+				}
+
+				if (!isHandled) {
+					throw err;
+				}
+			} else throw err;
 		}
 
-		return request.send();
+		return ctx.send();
 	}
 
 	// ==== Public ====
