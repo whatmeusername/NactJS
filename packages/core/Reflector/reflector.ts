@@ -1,4 +1,4 @@
-import { isInitializedClass, isClassInstance } from "../shared/index";
+import { isInitializedClass } from "../shared/index";
 
 class Reflector {
 	static get(key: string, target: any): any {

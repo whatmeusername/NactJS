@@ -1,4 +1,4 @@
-import type { NactRoutes, RouteChild, NactLibraryConfig } from "./index";
+import { NactRoutes, RouteChild, NactLibraryConfig, handleRouteDataInjections } from "./index";
 
 // TODO REPLACE LATER
 import { removeSlashes, isUndefined } from "../shared/index";
@@ -7,81 +7,16 @@ import {
 	getRouteData,
 	getControllerPath,
 	getRouteParameters,
-	getRouteConfig,
-	setRouteConfig,
+	defaultRegexpPresets,
+	addPrefixToPath,
 } from "./utils";
 
-import {
-	getNactLogger,
-	ROUTE__PATHS,
-	getTransferModule,
-	ROUTE__PARAMS,
-	ROUTE__PARAMETER__METADATA,
-	NactServer,
-} from "../index";
+import { getNactLogger, ROUTE__PATHS, ROUTE__PARAMS, ROUTE__PARAMETER__METADATA, NactServer } from "../index";
 
-import type { NactRouteWare, PathWalkerParams } from "./interface";
-import type { NactLogger, NactRequest, NactRouteConfig, NactRouteMethodData, NactRouteData } from "../index";
-import { NactRouter, NactRouterChild } from "./router-class";
-import { RouteHandlerData } from "../nact-request";
-
-type ClassInst = { new (): any };
-type ObjectType<T> = { [K: string]: T };
-type regexpVariables = { presets: ObjectType<RegExp | string>; variables: ObjectType<string> };
-
-const defaultRegexpPresets: regexpVariables = {
-	presets: {
-		"*": ".*",
-		str: "^\\D+$",
-		num: "^\\d+$",
-	},
-	variables: {},
-};
-
-const getRegexpPresets = (): regexpVariables => {
-	return defaultRegexpPresets;
-};
-
-const addPrefixToPath = (path: string | RegExp, prefix: string): string => {
-	if (path instanceof RegExp) {
-		const regexAsString = removeSlashes(path.toString());
-		const res = (prefix + "/" + `(${regexAsString})`).toLowerCase();
-		return res;
-	}
-	const isSlashOnly = path === "/";
-	const res = (prefix + (isSlashOnly ? "" : "/") + removeSlashes(path)).toLowerCase();
-	return res;
-};
-
-function handleRouteDataInjections(target: any, descriptorKey?: string): NactRouteConfig | undefined {
-	if (!target) return {};
-
-	const routeConfig: NactRouteConfig | undefined = getRouteConfig(target, descriptorKey);
-	if (routeConfig) {
-		const routeConfigValues: NactRouteWare[] = Object.values(routeConfig) as NactRouteWare[];
-		for (let i = 0; i < routeConfigValues.length; i++) {
-			const configItems = routeConfigValues[i]?.fns ?? [];
-			for (let j = 0; j < configItems.length; j++) {
-				const configItem = configItems[i];
-				if (typeof configItem === "object" && configItem?.inject === true) {
-					const tm = getTransferModule();
-					const coreModule = tm.getCoreModule();
-					if (coreModule) {
-						let existedProvider = coreModule.getProvider(configItem.instance);
-						if (!existedProvider) {
-							existedProvider = coreModule.appendProvider(configItem.instance);
-						}
-						if (existedProvider?.isReady) {
-							configItem.instance = existedProvider.instance;
-						}
-					}
-				}
-			}
-		}
-		setRouteConfig(routeConfig, target, descriptorKey);
-	}
-	return routeConfig;
-}
+import type { ClassInst, NactRouterChild, PathWalkerParams, regexpVariables } from "./interface";
+import type { NactLogger, NactRequest, NactRouteMethodData, NactRouteData } from "../index";
+import { NactRouter } from "./router-class";
+import { RouteHandlerData } from "./RouteHandlerData";
 
 class NactRouteLibrary {
 	protected __routes: NactRoutes;
@@ -311,4 +246,4 @@ class NactRouteLibrary {
 	}
 }
 
-export { NactRouteLibrary, getRegexpPresets, NactRouter };
+export { NactRouteLibrary, NactRouter };

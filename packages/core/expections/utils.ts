@@ -1,4 +1,4 @@
-import { isClassInstance } from "../shared";
+import { isClassInstance, isObject } from "../shared";
 import type { HttpExpection } from "./base-http-expection.expection";
 
 function getNamesForExpectionHandler(
@@ -18,4 +18,15 @@ function getNamesForExpectionHandler(
 	return res;
 }
 
-export { getNamesForExpectionHandler };
+function isExpectionObject(expection: any): expection is { statusCode: number; message: string } {
+	return (
+		isObject(expection) &&
+		expection?.message !== undefined &&
+		typeof expection?.message === "string" &&
+		!expection.statusCode !== undefined &&
+		!expection.statusCode !== null &&
+		typeof expection.statusCode === "number"
+	);
+}
+
+export { getNamesForExpectionHandler, isExpectionObject };

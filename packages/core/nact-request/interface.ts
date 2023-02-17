@@ -1,3 +1,4 @@
+import type { CookieSerializeOptions } from "cookie";
 import type { UrlWithParsedQuery } from "url";
 
 interface NactUrlParseQuery extends Omit<UrlWithParsedQuery, "query"> {
@@ -18,4 +19,12 @@ interface NactResponseBody {
 	isNactResonse?: boolean;
 }
 
-export { NactUrlParseQuery, NactSendFileOption, NactResponseBody };
+interface cookieOptions extends Omit<CookieSerializeOptions, "secure"> {
+	signed?: boolean;
+	secure?: boolean | "auto";
+	sameSite?: boolean | "lax" | "none" | "strict";
+	expires?: Date | undefined;
+	removeOtherCookies?: boolean;
+}
+
+export { NactUrlParseQuery, NactSendFileOption, NactResponseBody, cookieOptions };

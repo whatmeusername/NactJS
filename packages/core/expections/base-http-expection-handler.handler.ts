@@ -1,9 +1,8 @@
 import { HANDLER__ALLOWED__EXPECTIONS } from "../nact-constants/router.const";
-import type { NactRequest } from "../nact-request/request";
+import type { NactRequest } from "../nact-request/ctx";
 import { Reflector } from "../Reflector";
-import { isObject } from "../shared";
 import { HttpExpection } from "./base-http-expection.expection";
-import { getNamesForExpectionHandler } from "./utils";
+import { getNamesForExpectionHandler, isExpectionObject } from "./utils";
 import { HTTP_STATUS_MESSAGES, HTTP_STATUS_CODES } from "../nact-constants";
 
 abstract class HttpExpectionHandler {
@@ -40,17 +39,6 @@ abstract class HttpExpectionHandler {
 	abstract catch(expection: HttpExpection, request: NactRequest): void;
 }
 
-function isExpectionObject(expection: any): expection is { statusCode: number; message: string } {
-	return (
-		isObject(expection) &&
-		expection?.message !== undefined &&
-		typeof expection?.message === "string" &&
-		!expection.statusCode !== undefined &&
-		!expection.statusCode !== null &&
-		typeof expection.statusCode === "number"
-	);
-}
-
 class BaseHttpExpectionHandler extends HttpExpectionHandler {
 	catch(expection: HttpExpection, ctx: NactRequest): boolean {
 		if (expection instanceof HttpExpection) {
@@ -72,8 +60,8 @@ class BaseHttpExpectionHandler extends HttpExpectionHandler {
 		const response = ctx.getResponse();
 		const res = isExpectionObject(expection)
 			? {
-				statusCode: expection.statusCode ?? HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR,
-				message: expection.message ?? HTTP_STATUS_MESSAGES.InternalServerError,
+					statusCode: expection.statusCode ?? HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR,
+					message: expection.message ?? HTTP_STATUS_MESSAGES.InternalServerError,
 			  }
 			: { statusCode: HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR, message: HTTP_STATUS_MESSAGES.InternalServerError };
 
@@ -83,4 +71,4 @@ class BaseHttpExpectionHandler extends HttpExpectionHandler {
 	}
 }
 
-export { HttpExpectionHandler, BaseHttpExpectionHandler, isExpectionObject };
+export { HttpExpectionHandler, BaseHttpExpectionHandler };

@@ -5,9 +5,10 @@ import type {
 	ChildRouteSchema,
 	RouteChild,
 	NactRouteConfig,
+	regexpVariables,
 } from "./interface";
 import { getNactLogger, isUndefined } from "../index";
-import { getRegexpPresets, NactRouter } from "./NactRouteLibary";
+import { NactRouter } from "./NactRouteLibary";
 import { isClassInstance, isInitializedClass, removeSlashes } from "../shared";
 
 const logger = getNactLogger();
@@ -296,6 +297,31 @@ function setRouteConfig(config: NactRouteConfig, target: any, descriptorKey?: st
 	}
 }
 
+//TODO MOVE LATER
+const defaultRegexpPresets: regexpVariables = {
+	presets: {
+		"*": ".*",
+		str: "^\\D+$",
+		num: "^\\d+$",
+	},
+	variables: {},
+};
+
+const getRegexpPresets = (): regexpVariables => {
+	return defaultRegexpPresets;
+};
+
+const addPrefixToPath = (path: string | RegExp, prefix: string): string => {
+	if (path instanceof RegExp) {
+		const regexAsString = removeSlashes(path.toString());
+		const res = (prefix + "/" + `(${regexAsString})`).toLowerCase();
+		return res;
+	}
+	const isSlashOnly = path === "/";
+	const res = (prefix + (isSlashOnly ? "" : "/") + removeSlashes(path)).toLowerCase();
+	return res;
+};
+
 export {
 	getPathSchema,
 	getRouteParameters,
@@ -305,4 +331,7 @@ export {
 	getControllerPath,
 	getRouteConfig,
 	setRouteConfig,
+	getRegexpPresets,
+	addPrefixToPath,
+	defaultRegexpPresets,
 };

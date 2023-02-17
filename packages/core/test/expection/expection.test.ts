@@ -1,4 +1,5 @@
-import { NactServer, isExpectionObject } from "../../";
+import { NactServer } from "../../";
+import { isExpectionObject } from "../../expections/utils";
 
 import { ExpectionController, ClassExpectationsHandler, DecoratorExpections } from "./expection.service";
 

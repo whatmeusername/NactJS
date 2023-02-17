@@ -1,5 +1,6 @@
 import url from "url";
 import type { IncomingMessage } from "http";
+import type { NactServerResponse } from "./response";
 
 interface NactUrlParseQuery extends Omit<url.UrlWithParsedQuery, "query"> {
 	query: URLSearchParams;
@@ -41,4 +42,9 @@ const getRequestIP = (req: IncomingMessage): string | null => {
 	return req?.socket?.remoteAddress ?? null;
 };
 
-export { getRequestURLInfo, splitURLParameters, getProtocol, getHost, getRequestIP, getOrigin };
+function isConnectionSecure(request: NactServerResponse) {
+	//@ts-ignore
+	return request?.socket?.encrypted === true || request.headers["x-forwarded-proto"] === "https";
+}
+
+export { getRequestURLInfo, splitURLParameters, getProtocol, getHost, getRequestIP, getOrigin, isConnectionSecure };

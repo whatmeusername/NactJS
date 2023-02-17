@@ -1,5 +1,5 @@
 import { serverSettings } from "./interface";
-import { NactServer } from "./nact-application";
+import { NactServer } from "./NactApplication";
 
 import { config } from "dotenv";
 config();

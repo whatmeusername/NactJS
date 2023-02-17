@@ -1,12 +1,7 @@
-import type { NactServer } from "../application/nact-application";
-import type { RouteChild } from "./interface";
+import type { NactServer } from "../application/NactApplication";
+import type { NactRouterChild, RouteChild } from "./interface";
 
 import { ControllerExpectionsHandler } from "../expections";
-
-interface NactRouterChild {
-	rn: string;
-	RouteChild: RouteChild;
-}
 
 class NactRouter {
 	private child: NactRouterChild[];
@@ -65,4 +60,4 @@ class NactRouter {
 	}
 }
 
-export { NactRouter, NactRouterChild };
+export { NactRouter };

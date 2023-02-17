@@ -10,6 +10,11 @@ interface NactLibraryConfig {
 	logger?: NactLogger;
 }
 
+interface NactRouterChild {
+	rn: string;
+	RouteChild: RouteChild;
+}
+
 interface NactRoutes {
 	[K: string]: NactRouter;
 }
@@ -72,6 +77,10 @@ interface PathWalkerParams {
 	path: ChildRouteSchema | string[];
 }
 
+type ClassInst = { new (): any };
+type ObjectType<T> = { [K: string]: T };
+type regexpVariables = { presets: ObjectType<RegExp | string>; variables: ObjectType<string> };
+
 export type {
 	PathWalkerParams,
 	RouteChild,
@@ -86,4 +95,8 @@ export type {
 	NactRouteWare,
 	NactConfigItem,
 	NactConfigItemMiddleWare,
+	NactRouterChild,
+	ClassInst,
+	ObjectType,
+	regexpVariables,
 };

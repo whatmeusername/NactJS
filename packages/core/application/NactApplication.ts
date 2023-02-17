@@ -1,189 +1,19 @@
 import "reflect-metadata";
 
 import { createServer, IncomingMessage, RequestListener } from "http";
-import type { Server } from "http";
 import { parse } from "url";
 import { networkInterfaces } from "os";
 import { Socket } from "net";
-
 import { createSharedNactLogger, NactLogger } from "../nact-logger/logger";
 import { NactRequest, NactServerResponse, NactIncomingMessage } from "../nact-request";
 import { createNewTransferModule, getTransferModule, NactTransferModule } from "../module";
-
 import { HttpExpectionHandler, BaseHttpExpectionHandler, HttpExpection } from "../expections";
-import { GUARDS_VAR_NAME, MIDDLEWARE_VAR_NAME } from "../nact-constants";
-import { NactGuard, NactGuardFunc } from "../guard";
-
 import { NactRouteLibrary } from "../routing/NactRouteLibary";
-import { getRouteConfig } from "../routing/utils";
-import type { NactConfigItem, NactConfigItemMiddleWare } from "../routing/interface";
+import { NactMiddlewareFunc } from "../middleware";
+import { NactGlobalConfig } from "./NactApplicationGlobalConfig";
 
 import type { InjectRequest, NactListernerEvent, serverSettings } from "./interface";
-import { isClassInstance, isFunc } from "../shared/utils";
-import { MiddlewareType, NactMiddlewareFunc, NactMiddlewareObject } from "../middleware";
-
-function runMiddlewares(
-	middlewares: (NactMiddlewareObject<MiddlewareType> | NactConfigItemMiddleWare)[],
-	NactRequest: NactRequest,
-): boolean {
-	function next(value: string): void {
-		if (value === "route") {
-			end = true;
-		} else if (typeof value === "string") {
-			// TODO: THROW NACT ERRORS;
-			throw new Error(value);
-		}
-	}
-
-	let end = false;
-
-	for (let i = 0; i < middlewares.length; i++) {
-		if (end) break;
-		if (!NactRequest.isSended()) {
-			const data = middlewares[i];
-
-			let middleware = (data as any)?.middleware ? (data as any).middleware : (data as any).instance;
-			if (middleware?.use) middleware = middleware.use;
-
-			let params: any[] = [];
-
-			if (!data?.type || data?.type === "nact") {
-				params = [NactRequest];
-			} else {
-				params = [NactRequest.getRequest(), NactRequest.getResponse(), next];
-				(middleware as NactMiddlewareFunc)(NactRequest.getRequest(), NactRequest.getResponse(), next);
-			}
-			(middleware as any)?.use
-				? (middleware as any).use(...params)
-				: //@ts-ignore
-				  (middleware as NactMiddlewareFunc)(...params);
-		} else return false;
-	}
-	return true;
-}
-
-function runGuards(guards: (NactGuardFunc | NactConfigItem)[], NactRequest: NactRequest): boolean {
-	let res = true;
-	for (let i = 0; i < guards.length; i++) {
-		const guard = ((guards[i] as any)?.instance as NactGuard) ?? (guards[i] as NactGuardFunc);
-		res = (guard as any)?.validate ? (guard as NactGuard).validate(NactRequest) : (guard as any)(NactRequest);
-	}
-	return res;
-}
-
-class NactGlobalConfig {
-	private middleware: NactMiddlewareObject<MiddlewareType>[];
-	private handlers: HttpExpectionHandler[];
-	private guards: NactGuardFunc[];
-
-	// pipes
-	//afterware
-
-	constructor(private readonly server: NactServer) {
-		this.middleware = [];
-		this.handlers = [];
-		this.guards = [];
-	}
-
-	getGlobalMiddleware(): NactMiddlewareObject<MiddlewareType>[] {
-		return this.middleware;
-	}
-
-	getHandlers(): HttpExpectionHandler[];
-	getHandlers(name: string): HttpExpectionHandler | undefined;
-	getHandlers(name?: string): HttpExpectionHandler | HttpExpectionHandler[] | undefined {
-		if (name) {
-			return this.handlers.find((handler) => (handler as any).name === name);
-		}
-		return this.handlers;
-	}
-
-	getGuards(): NactGuardFunc[] {
-		return this.guards;
-	}
-
-	addGlobalHandler(
-		handler: (new (...args: any[]) => HttpExpectionHandler) | (new (...args: any[]) => HttpExpectionHandler)[],
-	): void {
-		const coreModule = this.server.getTransferModule().getCoreModule();
-		if (Array.isArray(handler)) {
-			handler.forEach((handler) => {
-				const provider = coreModule?.appendProvider(handler);
-				if (provider?.instance) {
-					this.handlers.push(provider.instance);
-				}
-			});
-		} else {
-			const provider = coreModule?.appendProvider(handler);
-			if (provider?.instance) {
-				this.handlers.unshift(provider.instance);
-			}
-		}
-	}
-
-	addGlobalGuard(guards: NactGuardFunc[] | NactGuardFunc): void {
-		guards = Array.isArray(guards) ? guards : [guards];
-		const coreModule = this.server.getTransferModule().getCoreModule();
-		for (let i = 0; i < guards.length; i++) {
-			const guard = guards[i];
-			if (isClassInstance(guard)) {
-				const provider = coreModule?.appendProvider(guard);
-				if (provider?.instance) {
-					this.guards.push(provider.instance);
-				}
-			} else if (isFunc(guard)) {
-				this.guards.push(guard);
-			}
-		}
-	}
-
-	addGlobalMiddleware(middleware: NactMiddlewareFunc<typeof type>, type: MiddlewareType = "nact"): void {
-		if (Array.isArray(middleware)) {
-			const res: NactMiddlewareObject<typeof type> = { middleware: middleware, type: type ?? "nact" };
-			this.middleware = [...this.middleware, ...middleware];
-		} else {
-			const res = { middleware: middleware, type: type ?? "nact" };
-			this.middleware.push(res);
-		}
-	}
-
-	executeWare(
-		direction: "after" | "before",
-		ctx: NactRequest,
-		target: object | ((...args: any[]) => any) | undefined,
-	): boolean {
-		if (!target) return false;
-
-		const ware = getRouteConfig(target);
-		let res = true;
-
-		if (ware) {
-			if (direction === "before") {
-				if (!ctx.isSended() && ware[MIDDLEWARE_VAR_NAME] && ware[MIDDLEWARE_VAR_NAME].fns.length > 0) {
-					runMiddlewares(ware[MIDDLEWARE_VAR_NAME].fns, ctx);
-				}
-				if (!ctx.isSended() && ware[GUARDS_VAR_NAME] && ware[GUARDS_VAR_NAME].fns.length > 0) {
-					res = runGuards(ware[GUARDS_VAR_NAME].fns, ctx);
-				}
-			}
-		}
-		return res;
-	}
-
-	executeGlobalWare(direction: "after" | "before", ctx: NactRequest): boolean {
-		let res = true;
-
-		if (direction === "before") {
-			if (!ctx.isSended() && this.middleware.length > 0) {
-				runMiddlewares(this.middleware, ctx);
-			}
-			if (!ctx.isSended() && this.guards.length > 0) {
-			}
-		}
-
-		return res;
-	}
-}
+import type { Server } from "http";
 
 class NactServer {
 	protected server: Server;
