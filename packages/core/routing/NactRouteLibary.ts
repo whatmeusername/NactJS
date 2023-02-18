@@ -1,7 +1,7 @@
 import { NactRoutes, RouteChild, NactLibraryConfig, handleRouteDataInjections } from "./index";
 
 // TODO REPLACE LATER
-import { removeSlashes, isUndefined } from "../shared/index";
+import { isUndefined } from "../shared/index";
 import {
 	findRouteByParams,
 	getRouteData,
@@ -13,7 +13,7 @@ import {
 
 import { getNactLogger, ROUTE__PATHS, ROUTE__PARAMS, ROUTE__PARAMETER__METADATA, NactServer } from "../index";
 
-import type { ClassInst, NactRouterChild, PathWalkerParams, regexpVariables } from "./interface";
+import type { ClassInst, NactRouterChild, regexpVariables } from "./interface";
 import type { NactLogger, NactRequest, NactRouteMethodData, NactRouteData } from "../index";
 import { NactRouter } from "./router-class";
 import { RouteHandlerData } from "./RouteHandlerData";
@@ -142,47 +142,34 @@ class NactRouteLibrary {
 		});
 	}
 
-	protected walkRoute(Router: NactRouter, params: PathWalkerParams): RouteChild | null {
-		const absolutePath = params.path.join("/");
-		const method = params.method;
-		let route: RouteChild | null = null;
-
-		route = findRouteByParams(Router, params);
-
-		if (route) {
-			//@ts-ignore
-			return route;
-		}
-		return null;
-	}
-
-	getRouteParams(rc: any, routeKEY: string, req: NactRequest): any[] {
-		const routeMetadata = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, rc, routeKEY);
-
-		let methodParamsVariables: any[] = [];
-
+	getRouteParams(rc: any, route_method: string, req: NactRequest): any[] {
+		const routeMetadata = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, rc, route_method);
 		if (routeMetadata) {
-			const methodParams = routeMetadata[ROUTE__PARAMS] ?? [];
-			methodParamsVariables = getRouteParameters(methodParams, req);
+			return getRouteParameters(routeMetadata[ROUTE__PARAMS] ?? [], req);
 		}
-		return methodParamsVariables;
+		return [];
 	}
 
 	getRouteMethodOr404(req: NactRequest): NactRouter | undefined {
-		const params = req.getURLData().params;
+		const urlData = req.getURLData();
 		const method = req.getMethod();
 
-		const firstParam = params[0];
+		const firstParam = urlData.params[0];
 		const Router = this.__routes[firstParam] ?? this.__routes["/"];
 		if (Router) {
-			const route = this.walkRoute(Router, { path: params, method: method });
+			const route = findRouteByParams(Router, {
+				path: urlData.params,
+				method: method,
+				fullpath: urlData.pathname ?? "",
+			});
 			if (route) {
 				const controllerInstance = Router.getInstance();
 
 				//@ts-ignore getting method from Class Instance
 				const routeHandlerData = new RouteHandlerData(controllerInstance, controllerInstance[route.name], route);
 				req.__handler = routeHandlerData;
-				routeHandlerData.__routeArgs = this.getRouteParams(controllerInstance.constructor, route.name, req);
+				routeHandlerData.__routeArgs =
+					route.paramsLength > 0 ? this.getRouteParams(controllerInstance.constructor, route.name, req) : [];
 
 				return Router;
 			} else {
@@ -232,6 +219,9 @@ class NactRouteLibrary {
 					path = isUndefined(path) ? "/" : path;
 
 					const routeData = getRouteData(path, methodData.method, descriptorKey);
+					routeData.paramsLength = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, controller.constructor, descriptorKey)?.[
+						ROUTE__PARAMS
+					].length;
 					routeMetaData.push(routeData);
 				}
 

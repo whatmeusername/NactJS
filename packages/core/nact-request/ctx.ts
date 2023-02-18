@@ -1,7 +1,7 @@
 import { ServerResponse } from "http";
 import { HTTP_STATUS_CODES, RouteChild, getNactLogger, NactLogger, HTTPMethods, RouteHandlerData } from "../index";
 
-import { mime } from "send";
+import { lookup } from "mime";
 import fs from "fs";
 
 import { parse } from "path";
@@ -137,7 +137,7 @@ class NactRequest {
 			const fileProperties = parse(path);
 			const fileExtension = fileProperties.ext.slice(1);
 
-			const type: any = mime.lookup(fileExtension) || "text/plain";
+			const type: any = lookup(fileExtension) || "text/plain";
 			const stats = fs.statSync(path);
 
 			if (options?.maxSize && options?.maxSize < stats.size) {

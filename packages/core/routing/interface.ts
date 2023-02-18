@@ -56,7 +56,10 @@ interface NactRouteData {
 interface ChildRouteSchemaSegment {
 	name: string | null;
 	optional?: boolean;
-	regexp?: RegExp | null;
+	regexp?: {
+		regexp: RegExp;
+		str: string;
+	};
 	parameter?: boolean;
 }
 type ChildRouteSchema = Array<ChildRouteSchemaSegment>;
@@ -70,11 +73,14 @@ interface RouteChild {
 	dynamicIndexes: number[];
 	isRegex?: boolean;
 	hasOptional: boolean;
+	regexp: RegExp;
+	paramsLength: 0;
 }
 
 interface PathWalkerParams {
 	method: HTTPMethods | string | null;
 	path: ChildRouteSchema | string[];
+	fullpath: string;
 }
 
 type ClassInst = { new (): any };

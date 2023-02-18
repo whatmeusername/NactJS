@@ -1,4 +1,11 @@
-import { NactRequest, HTTPMethods, ROUTE__CONFIG, CONTROLLER_ROUTER__NAME } from "../index";
+import {
+	NactRequest,
+	HTTPMethods,
+	ROUTE__CONFIG,
+	CONTROLLER_ROUTER__NAME,
+	ROUTE__PARAMS,
+	ROUTE__PARAMETER__METADATA,
+} from "../index";
 import type {
 	PathWalkerParams,
 	ChildRouteSchemaSegment,
@@ -14,23 +21,20 @@ import { isClassInstance, isInitializedClass, removeSlashes } from "../shared";
 const logger = getNactLogger();
 
 function findRouteByParams(Router: NactRouter, lookfor: PathWalkerParams): RouteChild | null {
-	const routeChilds = Object.values(Router.getChild());
-	const absolutePath = lookfor.path.join("/");
+	const routeChilds = Router.getChild();
 	const optionalRoutes = [];
 	const method = lookfor.method;
 
-	let route: RouteChild | undefined;
-	route = Router.getAbsoluteOrNull(absolutePath, method);
+	let route: RouteChild | undefined = Router.getAbsoluteOrNull(lookfor.fullpath, method);
 	if (route) return route;
 
 	for (let i = 0; i < routeChilds.length; i++) {
-		const route = routeChilds[i];
-		const routeData = route.RouteChild;
-		if (routeData.method === method) {
-			const mathcing = diffRouteSchemas(routeData, lookfor.path);
-			if (mathcing === "optional") {
+		const routeData = routeChilds[i].RouteChild;
+		if (routeData.method === method && (routeData.hasOptional || routeData.schema.length == lookfor.path.length)) {
+			const isMatch = routeData.regexp.test(lookfor.fullpath);
+			if (isMatch && routeData.hasOptional) {
 				optionalRoutes.push(routeData);
-			} else if (mathcing === "pass") return routeData;
+			} else if (isMatch) return routeData;
 		}
 	}
 
@@ -57,10 +61,10 @@ function diffRouteSchemas(Route: RouteChild, lookup: ChildRouteSchema | string[]
 
 				if (lookupSeg) {
 					if (routePathName === null && routePathSeg.regexp) {
-						isPassed = routePathSeg.regexp.test(lookupSeg) ? "pass" : "fail";
+						isPassed = routePathSeg.regexp.regexp.test(lookupSeg) ? "pass" : "fail";
 					} else if (routePathSeg.parameter) {
 						if (routePathSeg?.regexp) {
-							isPassed = routePathSeg.regexp.test(lookupSeg) ? "pass" : "fail";
+							isPassed = routePathSeg.regexp.regexp.test(lookupSeg) ? "pass" : "fail";
 						}
 					} else if (routePathSeg?.name && !routePathSeg?.parameter && !routePathSeg?.regexp) {
 						isPassed = routePathName === lookupSeg ? "pass" : "fail";
@@ -85,6 +89,35 @@ function diffRouteSchemas(Route: RouteChild, lookup: ChildRouteSchema | string[]
 	}
 
 	return isOptional && isPassed === "pass" ? "optional" : isPassed;
+}
+
+function BuildRegexFromSchema(shchema: ChildRouteSchema): RegExp {
+	let regexString = "";
+
+	for (let i = 0; i < shchema.length; i++) {
+		const part = shchema[i];
+
+		if (i > 0 && !part.optional) {
+			regexString += "\\/";
+		}
+
+		let regSegment = "";
+
+		if (part.regexp) {
+			regSegment = part.regexp.str;
+		} else if (part.parameter) {
+			regSegment = "[^\\/]+";
+		} else {
+			regSegment = part.name ?? "";
+		}
+
+		if (part.optional) {
+			regSegment = `(\\/${regSegment})?`;
+		}
+
+		regexString += regSegment;
+	}
+	return new RegExp(`^\\/?${regexString}\\/?$`);
 }
 
 function getRouteData(path: string | RegExp, method: HTTPMethods | string, propertyKey: string): RouteChild {
@@ -113,7 +146,7 @@ function getRouteData(path: string | RegExp, method: HTTPMethods | string, prope
 			}
 		});
 	} else if (isRegex) {
-		pathSchema = [{ name: null, regexp: path as RegExp }];
+		pathSchema = [{ name: null, regexp: { regexp: path as RegExp, str: extractBodyFromRegexAsString(path) } }];
 	}
 
 	const data: RouteChild = {
@@ -124,6 +157,8 @@ function getRouteData(path: string | RegExp, method: HTTPMethods | string, prope
 		schema: pathSchema,
 		dynamicIndexes: dynamicIndexes,
 		hasOptional: hasOptional,
+		regexp: BuildRegexFromSchema(pathSchema),
+		paramsLength: 0,
 	};
 
 	if (isRegex) data.isRegex = true;
@@ -183,6 +218,11 @@ function extractRegexFromPath(path: string, convertToRegEXP?: boolean): string |
 	return null;
 }
 
+function extractBodyFromRegexAsString(regex: RegExp | string): string {
+	const str = regex.toString();
+	return str.replace(/^\/\^?/, "").replace(/\$?\/$/, "");
+}
+
 function getPathSchema(path: string): ChildRouteSchema {
 	if (path === "/") {
 		return [{ name: "/" }];
@@ -210,13 +250,20 @@ function getPathSchema(path: string): ChildRouteSchema {
 				if (name) {
 					data.name = name;
 					const regexp = extractRegexFromPath(seg, true) as RegExp;
-					if (regexp) data.regexp = regexp;
-					else RegexEmptyError(seg);
+					if (regexp) {
+						data.regexp = {
+							regexp: regexp,
+							str: extractBodyFromRegexAsString(regexp),
+						};
+					} else RegexEmptyError(seg);
 				}
 			} else if (isRegexPath(seg)) {
 				const regexp = extractRegexFromPath(seg, true) as RegExp;
 				if (regexp && `${regexp}`.length > 0) {
-					data.regexp = regexp;
+					data.regexp = {
+						regexp: regexp,
+						str: extractBodyFromRegexAsString(regexp),
+					};
 				} else {
 					RegexEmptyError(seg);
 				}

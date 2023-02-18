@@ -29,9 +29,14 @@ class ApiController {
 		return { message: "Привет" };
 	}
 
-	@Get("/hello/:id(str)")
+	@Get("/hello/hello?")
 	HelloWorld2(@Param { id }: { id: string }) {
 		return { message: "Hello world 2" };
+	}
+
+	@Get("/missing/:user?/found")
+	missing2(@Param { user }: { user: string }) {
+		return { data: user ? "success" : "fail" };
 	}
 
 	@Get("/")
@@ -51,7 +56,7 @@ class ApiController {
 }
 
 createModule({
-	controllers: [ControllerTest, ApiController],
+	controllers: [ApiController],
 });
 
 function App() {

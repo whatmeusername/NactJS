@@ -1,27 +1,19 @@
-import url from "url";
+import { parse } from "url";
 import type { IncomingMessage } from "http";
 import type { NactServerResponse } from "./response";
-
-interface NactUrlParseQuery extends Omit<url.UrlWithParsedQuery, "query"> {
-	query: URLSearchParams;
-	params: string[];
-}
-
-const splitURLParameters = (string: string): string[] => {
-	if (string === "/") {
-		return ["/"];
-	}
-	const splittedRes = string.split("/");
-	return splittedRes.filter((param) => param !== "");
-};
+import type { NactUrlParseQuery } from "./interface";
 
 const getRequestURLInfo = (req: IncomingMessage): NactUrlParseQuery => {
 	const fullUrl = getOrigin(req) + req.url;
-	const parsedURLQuery = url.parse(fullUrl);
+	const parsedURLQuery = parse(fullUrl);
+
+	const pathname = parsedURLQuery.pathname ?? "";
+	const URLParameters = pathname === "/" ? ["/"] : pathname.split("/").filter((param) => param);
+
 	const URL: NactUrlParseQuery = {
 		...parsedURLQuery,
 		query: new URLSearchParams(parsedURLQuery.search ?? ""),
-		params: splitURLParameters(parsedURLQuery.pathname ?? "/"),
+		params: URLParameters,
 	};
 	return URL;
 };
@@ -47,4 +39,4 @@ function isConnectionSecure(request: NactServerResponse) {
 	return request?.socket?.encrypted === true || request.headers["x-forwarded-proto"] === "https";
 }
 
-export { getRequestURLInfo, splitURLParameters, getProtocol, getHost, getRequestIP, getOrigin, isConnectionSecure };
+export { getRequestURLInfo, getProtocol, getHost, getRequestIP, getOrigin, isConnectionSecure };

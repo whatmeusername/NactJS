@@ -156,10 +156,10 @@ class NactServer {
 	protected async __executeRequest(ctx: NactRequest): Promise<NactRequest | undefined> {
 		let isRunned = false;
 		let HandlerRouter;
+
 		try {
 			if (this.GlobalConfig.executeGlobalWare("before", ctx)) {
 				HandlerRouter = this.RouteLibrary.getRouteMethodOr404(ctx);
-
 				const handlerData = ctx.getHandlerData();
 				if (HandlerRouter) {
 					if (this.GlobalConfig.executeWare("before", ctx, handlerData?.getHandlerClass())) {
