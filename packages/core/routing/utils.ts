@@ -159,6 +159,7 @@ function getRouteData(path: string | RegExp, method: HTTPMethods | string, prope
 		hasOptional: hasOptional,
 		regexp: BuildRegexFromSchema(pathSchema),
 		paramsLength: 0,
+		isAsync: false,
 	};
 
 	if (isRegex) data.isRegex = true;

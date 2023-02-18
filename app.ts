@@ -40,7 +40,7 @@ class ApiController {
 	}
 
 	@Get("/")
-	HelloWorld(@Ctx ctx: NactRequest) {
+	async HelloWorld(@Ctx ctx: NactRequest) {
 		return { message: "Hello world" };
 	}
 

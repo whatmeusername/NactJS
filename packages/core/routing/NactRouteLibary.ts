@@ -219,9 +219,15 @@ class NactRouteLibrary {
 					path = isUndefined(path) ? "/" : path;
 
 					const routeData = getRouteData(path, methodData.method, descriptorKey);
+
 					routeData.paramsLength = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, controller.constructor, descriptorKey)?.[
 						ROUTE__PARAMS
 					].length;
+					routeData.isAsync =
+						Reflect.getOwnPropertyDescriptor(Reflect.getPrototypeOf(controller) ?? {}, descriptorKey)?.value[
+							Symbol.toStringTag
+						] === "AsyncFunction";
+
 					routeMetaData.push(routeData);
 				}
 

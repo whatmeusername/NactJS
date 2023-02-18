@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/whatmeusername/NactJs-TypeORM/issues"
   },
-  "homepage": "https://github.com/whatmeusername/NactJs-TypeORM#readme"
+  "homepage": "https://github.com/whatmeusername/NactJs-TypeORM#readme",
+  "devDependencies": {
+    
+  }
 }

@@ -75,6 +75,7 @@ interface RouteChild {
 	hasOptional: boolean;
 	regexp: RegExp;
 	paramsLength: 0;
+	isAsync: boolean;
 }
 
 interface PathWalkerParams {

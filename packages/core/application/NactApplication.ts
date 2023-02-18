@@ -161,13 +161,17 @@ class NactServer {
 			if (this.GlobalConfig.executeGlobalWare("before", ctx)) {
 				HandlerRouter = this.RouteLibrary.getRouteMethodOr404(ctx);
 				const handlerData = ctx.getHandlerData();
-				if (HandlerRouter) {
+				if (HandlerRouter && handlerData) {
+					const routeData = handlerData.getRouteData();
 					if (this.GlobalConfig.executeWare("before", ctx, handlerData?.getHandlerClass())) {
 						if (this.GlobalConfig.executeWare("before", ctx, handlerData?.getHandler())) {
 							isRunned = true;
-							const response = await new Promise((resolve) => {
-								return resolve(handlerData?.callMethod());
-							});
+
+							const response = routeData.isAsync
+								? await new Promise((r) => {
+										return r(handlerData?.callMethod());
+								  })
+								: handlerData?.callMethod();
 							ctx.setPayload(response);
 						}
 					}
