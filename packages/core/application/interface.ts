@@ -1,7 +1,9 @@
+import type { HTTPMethods } from "../routing";
+
 interface InjectRequest {
 	url: string;
 	headers?: { [K: string]: string };
-	method: "GET" | "POST" | "DELETE" | "OPTIONS" | "PUT";
+	method: HTTPMethods;
 	body?: any;
 	authority?: string;
 }
@@ -10,6 +12,15 @@ interface serverSettings {
 	loggerEnabled?: boolean;
 }
 
-type NactListernerEvent = "close" | "start";
+enum NactListernerEvent {
+	CLOSE = "close",
+	START = "start",
+}
 
-export type { InjectRequest, serverSettings, NactListernerEvent };
+enum NactWareExectionDirection {
+	BEFORE = "before",
+	AFTER = "after",
+}
+
+export { NactListernerEvent, NactWareExectionDirection };
+export type { InjectRequest, serverSettings };

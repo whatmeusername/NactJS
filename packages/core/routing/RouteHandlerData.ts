@@ -23,26 +23,26 @@ class RouteHandlerData {
 		this.routeArgs = value;
 	}
 
-	callMethod(): any {
+	public callMethod(): any {
 		if (this.routeMethod) {
 			return this.routeMethod.apply(this.ControllerInstance, this.routeArgs);
 		}
 		return undefined;
 	}
 
-	getArgs(): any[] {
+	public getArgs(): any[] {
 		return this.routeArgs;
 	}
 
-	getHandlerClass(): object {
+	public getHandlerClass(): object {
 		return this.routeClass;
 	}
 
-	getHandler(): ((...args: any[]) => any) | undefined {
+	public getHandler(): ((...args: any[]) => any) | undefined {
 		return this.routeMethod;
 	}
 
-	getRouteData(): RouteChild {
+	public getRouteData(): RouteChild {
 		return this.routeData;
 	}
 }

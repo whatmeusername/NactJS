@@ -42,7 +42,7 @@ function isInjectArgumentsHasEnoughForFactory(provider: NactCustomProvider): boo
 function getNameFromUseAlias(provider: NactCustomProvider): string | undefined {
 	if (provider.willUse === "useAlias" && provider.useAlias) {
 		const aliasValue = provider.useAlias;
-		return typeof aliasValue === "string" ? aliasValue : isClassInstance(aliasValue) ? aliasValue.name : null;
+		return typeof aliasValue === "string" ? aliasValue : isClassInstance(aliasValue) ? aliasValue.name : undefined;
 	}
 }
 
@@ -91,23 +91,23 @@ class NactModule {
 	}
 
 	// ==== Getters ====
-	getExports(): ExportData[] {
+	public getExports(): ExportData[] {
 		return this.export;
 	}
 
-	getImports(): any[] {
+	public getImports(): any[] {
 		return this.import;
 	}
 
-	getProviders(): ProviderData[] {
+	public getProviders(): ProviderData[] {
 		return this.providers;
 	}
 
-	getControllers(): ControllerData[] {
+	public getControllers(): ControllerData[] {
 		return this.controllers;
 	}
 	// ===== Initialization ====
-	initialize(settings?: NactModuleSettings) {
+	public initialize(settings?: NactModuleSettings) {
 		if (!this.__isInited) {
 			if (!settings) settings = this.__moduleSettings as NactModuleSettings;
 
@@ -117,7 +117,7 @@ class NactModule {
 		}
 	}
 
-	finishInitialization(): void {
+	public finishInitialization(): void {
 		if (isAllProviderResolved(this) && !this.__isInited) {
 			this.__mapControllers(this.__moduleSettings?.controllers ?? []);
 			setModuleWaterMark(this);
@@ -129,11 +129,11 @@ class NactModule {
 	}
 
 	// ---- Tokens ----
-	getModuleToken(): string {
+	public getModuleToken(): string {
 		return this.__moduleToken;
 	}
 
-	setUniqueToken(object: any, prefix?: string) {
+	private setUniqueToken(object: any, prefix?: string) {
 		const token = getUniqueToken(prefix);
 		Reflect.defineMetadata(INJECTABLE_UNIQUE_TOKEN, token, object);
 		return token;
@@ -141,7 +141,7 @@ class NactModule {
 
 	// ===== Providers Getters ====
 
-	getProvider(
+	public getProvider(
 		providerNameOrToken: string | { new (...args: any[]): any } | (new (...args: any[]) => any),
 	): ProviderData | undefined {
 		//prettier-ignore
@@ -155,11 +155,11 @@ class NactModule {
 		return this.providers.find((provider) => provider.name === providerNameOrToken);
 	}
 
-	getProviderFromImport(providerName: string): any {
+	private getProviderFromImport(providerName: string): any {
 		return this.import.find((provider) => provider.name === providerName);
 	}
 
-	getProviderFromSettings(providerName: string): any | undefined {
+	public getProviderFromSettings(providerName: string): any | undefined {
 		const providersFromSettings = this.__moduleSettings?.providers;
 		if (providersFromSettings) {
 			return providersFromSettings.find(
@@ -229,7 +229,7 @@ class NactModule {
 
 	// ---- Resolving / Updating ----
 
-	__updateProvider(providerToken: string): ProviderData | null {
+	public __updateProvider(providerToken: string): ProviderData | null {
 		const providerToUpdate = this.getProvider(providerToken);
 		if (providerToUpdate) {
 			const initialProvider = this.getProviderFromSettings(providerToUpdate.name);
@@ -455,7 +455,7 @@ class NactModule {
 
 	// ==== validating ====
 
-	hasProvider(providerName: string, shouldBeResolved?: boolean): boolean {
+	public hasProvider(providerName: string, shouldBeResolved?: boolean): boolean {
 		return (
 			(this.getProvider(providerName) ?? (shouldBeResolved ? this.getProviderFromSettings(providerName) : undefined)) !==
 			undefined
@@ -505,7 +505,7 @@ class NactModule {
 	}
 
 	// ===== EXPORT =====
-	__loadExports(exports: any[]) {
+	public __loadExports(exports: any[]) {
 		for (let i = 0; i < exports.length; i++) {
 			const moduleExport = exports[i];
 			const exportInstanceName = typeof moduleExport === "string" ? moduleExport : moduleExport.name;

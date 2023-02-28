@@ -4,7 +4,7 @@ import { NactRequest } from "./packages/core/nact-request/index";
 import { createModule } from "./packages/core/module/index";
 import { createNactApp } from "./packages/core/application";
 
-import { Controller, Ctx } from "./packages/core";
+import { Controller, Ctx, Handler, HttpExpection, HttpExpectionHandler, NactGuard, useHandler } from "./packages/core";
 
 // temp
 import cookieParser from "cookie-parser";
@@ -22,9 +22,23 @@ class ControllerTest {
 	}
 }
 
+class TestHttpExpection extends HttpExpection {
+	constructor() {
+		super(501, "got error");
+	}
+}
+
+@Handler(TestHttpExpection)
+class TestHandler extends HttpExpectionHandler {
+	catch(expection: HttpExpection, ctx: NactRequest) {
+		const response = ctx.getResponse();
+	}
+}
+
 @Controller("api")
 class ApiController {
 	@Get("delete?", ":hello(^hi2$)")
+	@useHandler(TestHandler)
 	Delete(@Param { hello }: any) {
 		return { message: "Привет" };
 	}

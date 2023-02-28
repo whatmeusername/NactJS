@@ -84,7 +84,7 @@ interface PathWalkerParams {
 	fullpath: string;
 }
 
-type ClassInst = { new (): any };
+type ClassInst = { new (...args: any[]): any };
 type ObjectType<T> = { [K: string]: T };
 type regexpVariables = { presets: ObjectType<RegExp | string>; variables: ObjectType<string> };
 

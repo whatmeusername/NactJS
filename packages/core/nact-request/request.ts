@@ -32,11 +32,11 @@ class NactIncomingMessage extends IncomingMessage {
 		}
 	}
 
-	getBody(): any {
+	public getBody(): any {
 		return this.body;
 	}
 
-	getHeader(name: string): string | string[] | null {
+	public getHeader(name: string): string | string[] | null {
 		return this.headers[name] ?? null;
 	}
 }

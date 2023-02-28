@@ -5,11 +5,8 @@ function setMetaData(target: any, routeKey: string, key: string, value: any): an
 	const currentMetaData = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, target.constructor, routeKey);
 	if (currentMetaData) {
 		const propertyExists = currentMetaData[key];
-		if (propertyExists) {
-			currentMetaData[key].unshift(value);
-		} else {
-			currentMetaData[key] = [value];
-		}
+		if (propertyExists) currentMetaData[key].unshift(value);
+		else currentMetaData[key] = [value];
 	} else {
 		return { [key]: [value] };
 	}

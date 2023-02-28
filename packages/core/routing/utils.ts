@@ -25,7 +25,7 @@ function findRouteByParams(Router: NactRouter, lookfor: PathWalkerParams): Route
 	const optionalRoutes = [];
 	const method = lookfor.method;
 
-	let route: RouteChild | undefined = Router.getAbsoluteOrNull(lookfor.fullpath, method);
+	let route: RouteChild | null = Router.getAbsoluteOrNull(lookfor.fullpath, method);
 	if (route) return route;
 
 	for (let i = 0; i < routeChilds.length; i++) {
@@ -199,6 +199,8 @@ function extractNameFromPath(path: string): string | null {
 	return res ? res[0] : null;
 }
 
+function extractRegexFromPath(path: string, convertToRegEXP: true): RegExp | null;
+function extractRegexFromPath(path: string): string | null;
 function extractRegexFromPath(path: string, convertToRegEXP?: boolean): string | RegExp | null {
 	const checkPreset = (re: string): string => {
 		const RegexpPresets = getRegexpPresets().presets;
@@ -247,10 +249,10 @@ function getPathSchema(path: string): ChildRouteSchema {
 
 			if (isDynamicWithRegex(seg)) {
 				data.parameter = true;
-				const name = extractNameFromPath(seg) as string;
+				const name = extractNameFromPath(seg);
 				if (name) {
 					data.name = name;
-					const regexp = extractRegexFromPath(seg, true) as RegExp;
+					const regexp = extractRegexFromPath(seg, true);
 					if (regexp) {
 						data.regexp = {
 							regexp: regexp,
@@ -259,7 +261,7 @@ function getPathSchema(path: string): ChildRouteSchema {
 					} else RegexEmptyError(seg);
 				}
 			} else if (isRegexPath(seg)) {
-				const regexp = extractRegexFromPath(seg, true) as RegExp;
+				const regexp = extractRegexFromPath(seg, true);
 				if (regexp && `${regexp}`.length > 0) {
 					data.regexp = {
 						regexp: regexp,
@@ -270,9 +272,9 @@ function getPathSchema(path: string): ChildRouteSchema {
 				}
 			} else if (isDynamicPath(seg)) {
 				data.parameter = true;
-				data.name = extractNameFromPath(seg) as string;
+				data.name = extractNameFromPath(seg);
 			} else if (isAllowedNameForURL(seg)) {
-				data.name = extractNameFromPath(seg) as string;
+				data.name = extractNameFromPath(seg);
 			} else {
 				logger.error(`Part "${seg}" of path "${path}" does not match any allowed pattern.
 		Check if:
@@ -295,7 +297,7 @@ function getPathSchema(path: string): ChildRouteSchema {
 	return res;
 }
 
-function getRouteParameters(params: any[], req: NactRequest): any | null {
+function getRouteParameters(params: any[], req: NactRequest): any[] {
 	const result = [];
 	for (let i = 0; i < params.length; i++) {
 		const param = params[i];
@@ -313,16 +315,16 @@ function getControllerPath(instance: any): string | null {
 function getRouteConfig(target: any, descriptorKey?: string): NactRouteConfig | undefined {
 	if (isInitializedClass(target)) {
 		if (descriptorKey) {
-			return Reflect.getMetadata(ROUTE__CONFIG, target[descriptorKey] ?? {});
+			return Reflect.getMetadata(ROUTE__CONFIG, (target as any)[descriptorKey] ?? {});
 		} else {
 			const classProto = Object.getPrototypeOf(target).constructor;
 			return Reflect.getMetadata(ROUTE__CONFIG, classProto);
 		}
 	} else if (isClassInstance(target)) {
 		if (descriptorKey) {
-			return Reflect.getMetadata(ROUTE__CONFIG, target[descriptorKey]);
+			return Reflect.getMetadata(ROUTE__CONFIG, (target as any)[descriptorKey]);
 		} else {
-			return Reflect.getMetadata(ROUTE__CONFIG, target);
+			return Reflect.getMetadata(ROUTE__CONFIG, target as any);
 		}
 	}
 	return Reflect.getMetadata(ROUTE__CONFIG, target);
@@ -331,14 +333,14 @@ function getRouteConfig(target: any, descriptorKey?: string): NactRouteConfig | 
 function setRouteConfig(config: NactRouteConfig, target: any, descriptorKey?: string): void {
 	if (isInitializedClass(target)) {
 		if (descriptorKey) {
-			Reflect.defineMetadata(ROUTE__CONFIG, config, target[descriptorKey]);
+			Reflect.defineMetadata(ROUTE__CONFIG, config, (target as any)[descriptorKey]);
 		} else {
 			const classProto = Object.getPrototypeOf(target).constructor;
 			Reflect.defineMetadata(ROUTE__CONFIG, config, classProto);
 		}
 	} else if (isClassInstance(target)) {
 		if (descriptorKey) {
-			Reflect.defineMetadata(ROUTE__CONFIG, config, target[descriptorKey]);
+			Reflect.defineMetadata(ROUTE__CONFIG, config, (target as any)[descriptorKey]);
 		} else {
 			Reflect.defineMetadata(ROUTE__CONFIG, config, target);
 		}

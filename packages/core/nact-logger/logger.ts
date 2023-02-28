@@ -61,12 +61,12 @@ class NactLogger {
 		}
 	}
 
-	getTime(inheritColor: string, useColor = false): any {
+	private getTime(inheritColor: string, useColor = false): any {
 		const date = new Date().toLocaleTimeString("en-GB", { day: "numeric", month: "short" });
 		return `${useColor ? "" : colors.black} ${date} ${useColor ? "" : inheritColor}`;
 	}
 
-	log(message: string): void {
+	public log(message: string): void {
 		const prefix = "[NACT LOG]";
 		const color = `${this.logColor}`;
 
@@ -74,7 +74,7 @@ class NactLogger {
 		this.__color(color, `${startsWith} ${message}`);
 	}
 
-	error(message: string): Error {
+	public error(message: string): Error {
 		const prefix = "[NACT ERROR]";
 		const color = `${this.errorColor}`;
 		const startsWith = [this.getTime(color), prefix].join(" ");
@@ -83,7 +83,7 @@ class NactLogger {
 		throw new Error(errorMessage);
 	}
 
-	warning(message: string): void {
+	public warning(message: string): void {
 		const prefix = "[NACT WARNING]";
 		const color = `${this.warningColor}`;
 		const startsWith = [this.getTime(color), prefix].join(" ");
@@ -91,7 +91,7 @@ class NactLogger {
 		this.__color(color, `${startsWith} ${message}`, "warning");
 	}
 
-	info(message: string, subprefix?: string): void {
+	public info(message: string, subprefix?: string): void {
 		const prefix = `[NACT INFO${subprefix ? " / " + subprefix.toUpperCase() : ""}]`;
 		const color = `${this.infoColor}`;
 		const startsWith = [this.getTime(color), prefix].join(" ");

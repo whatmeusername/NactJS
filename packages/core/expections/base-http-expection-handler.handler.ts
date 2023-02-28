@@ -40,7 +40,7 @@ abstract class HttpExpectionHandler {
 }
 
 class BaseHttpExpectionHandler extends HttpExpectionHandler {
-	catch(expection: HttpExpection, ctx: NactRequest): boolean {
+	public catch(expection: HttpExpection, ctx: NactRequest): boolean {
 		if (expection instanceof HttpExpection) {
 			const response = ctx.getResponse();
 
@@ -56,7 +56,8 @@ class BaseHttpExpectionHandler extends HttpExpectionHandler {
 			return this.handleUnknowException(expection, ctx);
 		}
 	}
-	handleUnknowException(expection: any, ctx: NactRequest): boolean {
+
+	private handleUnknowException(expection: any, ctx: NactRequest): boolean {
 		const response = ctx.getResponse();
 		const res = isExpectionObject(expection)
 			? {

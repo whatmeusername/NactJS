@@ -25,15 +25,15 @@ class NactServerResponse extends ServerResponse {
 		return this.ctx;
 	}
 
-	getCtx(): NactRequest | undefined {
+	public getCtx(): NactRequest | undefined {
 		return this.ctx;
 	}
 
-	isSended(): boolean {
+	public isSended(): boolean {
 		return this.writableEnded;
 	}
 
-	json(body: { [K: string]: any }): NactServerResponse {
+	public json(body: { [K: string]: any }): NactServerResponse {
 		if (!this.isSended()) {
 			const json = JSON.stringify(body);
 			this.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -44,7 +44,7 @@ class NactServerResponse extends ServerResponse {
 		return this;
 	}
 
-	send(data?: any): NactServerResponse {
+	public send(data?: any): NactServerResponse {
 		if (!this.isSended()) {
 			if (data) {
 				if (typeof data === "object" && data !== null && data !== undefined) {
@@ -65,21 +65,20 @@ class NactServerResponse extends ServerResponse {
 		return this;
 	}
 
-	contentType(type: string): NactServerResponse {
+	public contentType(type: string): NactServerResponse {
 		if (!this.isSended()) {
 			const mimeType = lookup(type) || type;
 			this.setHeader("Content-type", mimeType);
 		}
-
 		return this;
 	}
 
-	status(code: number): NactServerResponse {
+	public status(code: number): NactServerResponse {
 		if (!this.isSended()) this.statusCode = code;
 		return this;
 	}
 
-	header(header: string, value: boolean | number | string | null | string[]): NactServerResponse {
+	public header(header: string, value: boolean | number | string | null | string[]): NactServerResponse {
 		if (value !== null) {
 			if (typeof value === "boolean") value = value.toString();
 			if (!this.isSended()) {
@@ -89,17 +88,17 @@ class NactServerResponse extends ServerResponse {
 		return this;
 	}
 
-	length(length: number): NactServerResponse {
+	public length(length: number): NactServerResponse {
 		if (!this.isSended()) this.setHeader("Content-Length", length);
 		return this;
 	}
 
-	clearCookie(name: string, options?: cookieOptions): NactServerResponse {
+	public clearCookie(name: string, options?: cookieOptions): NactServerResponse {
 		this.cookie(name, "", { expires: new Date(0), path: "/", ...options });
 		return this;
 	}
 
-	cookie(cookieName: string, cookieValue: string, options?: cookieOptions): NactServerResponse {
+	public cookie(cookieName: string, cookieValue: string, options?: cookieOptions): NactServerResponse {
 		if (this.ctx) {
 			options = !options ? {} : options;
 

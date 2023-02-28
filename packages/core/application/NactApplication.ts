@@ -12,7 +12,7 @@ import { NactRouteLibrary } from "../routing/NactRouteLibary";
 import { NactMiddlewareFunc } from "../middleware";
 import { NactGlobalConfig } from "./NactApplicationGlobalConfig";
 
-import type { InjectRequest, NactListernerEvent, serverSettings } from "./interface";
+import { InjectRequest, NactListernerEvent, NactWareExectionDirection, serverSettings } from "./interface";
 import type { Server } from "http";
 
 class NactServer {
@@ -46,15 +46,17 @@ class NactServer {
 	}
 
 	// --- subscribers
-	on(event: NactListernerEvent, cb: () => void): void {
+	public on(event: NactListernerEvent, cb: () => void): void {
 		if (this.listeners[event] && typeof cb === "function") {
 			this.listeners[event].push(cb);
 		} else {
-			this.logger.warning(`tried to subscribe on ${event} event, that not exists defined in nact`);
+			this.logger.warning(
+				`Tried to subscribe on ${event} event, that not existsing in nact. Available events are: start and close.`,
+			);
 		}
 	}
 
-	emit(event: NactListernerEvent): void {
+	public emit(event: NactListernerEvent): void {
 		const events = this.listeners[event];
 		if (event && Array.isArray(events)) {
 			for (let i = 0; i < events.length; i++) {
@@ -111,9 +113,9 @@ class NactServer {
 		const controllers = this.getTransferModule().getModulesControllers(true);
 		this.RouteLibrary.registerController(controllers);
 
-		this.getTransferModule().emitAllProviderEvent("start");
-		this.on("close", () => {
-			this.getTransferModule().emitAllProviderEvent("close");
+		this.getTransferModule().emitAllProviderEvent(NactListernerEvent.START);
+		this.on(NactListernerEvent.CLOSE, () => {
+			this.getTransferModule().emitAllProviderEvent(NactListernerEvent.CLOSE);
 		});
 
 		this.__getLocalMachineIP();
@@ -123,12 +125,6 @@ class NactServer {
 
 	protected __messageOnInitilizationEnd(): void {
 		if (this.running) {
-			const protocol = "http://";
-			const ipv4 = this.IPv4 ?? "localhost";
-			const serverURL = protocol + ipv4 + ":" + this.serverPort + "/";
-			this.serverRunningURL = serverURL;
-
-			this.logger.log(`NactServer is now running on ${serverURL}`);
 			this.logger.log("NactServer is successfully configured");
 		}
 	}
@@ -158,13 +154,13 @@ class NactServer {
 		let HandlerRouter;
 
 		try {
-			if (this.GlobalConfig.executeGlobalWare("before", ctx)) {
+			if (this.GlobalConfig.executeGlobalWare(NactWareExectionDirection.BEFORE, ctx)) {
 				HandlerRouter = this.RouteLibrary.getRouteMethodOr404(ctx);
 				const handlerData = ctx.getHandlerData();
 				if (HandlerRouter && handlerData) {
 					const routeData = handlerData.getRouteData();
-					if (this.GlobalConfig.executeWare("before", ctx, handlerData?.getHandlerClass())) {
-						if (this.GlobalConfig.executeWare("before", ctx, handlerData?.getHandler())) {
+					if (this.GlobalConfig.executeWare(NactWareExectionDirection.BEFORE, ctx, handlerData?.getHandlerClass())) {
+						if (this.GlobalConfig.executeWare(NactWareExectionDirection.BEFORE, ctx, handlerData?.getHandler())) {
 							isRunned = true;
 
 							const response = routeData.isAsync
@@ -214,6 +210,9 @@ class NactServer {
 				this.__initialize();
 				this.running = true;
 				this.serverPort = port;
+				const serverURL = "http://" + (this.IPv4 ?? "localhost") + ":" + this.serverPort + "/";
+				this.serverRunningURL = serverURL;
+				this.logger.log(`NactServer is now running on ${serverURL}`);
 			});
 		}
 		return this;
@@ -223,11 +222,12 @@ class NactServer {
 		if (!this.running) {
 			await this.__initialize();
 			this.running = true;
+			this.logger.log(`NactServer is now running offine. Server is accepting requests only through injectRequest method.`);
 		}
 		return this;
 	}
 
-	public resetConfiguration() {
+	public resetConfiguration(): void {
 		this.GlobalConfig = new NactGlobalConfig(this);
 	}
 

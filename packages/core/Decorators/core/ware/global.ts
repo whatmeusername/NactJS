@@ -1,11 +1,11 @@
 import { isClassInstance } from "../../../shared/index";
-import { NactConfigItemMiddleWare, NactRouteWare } from "../../../routing";
+import { ClassInst, NactConfigItemMiddleWare, NactRouteWare } from "../../../routing";
 import { MIDDLEWARE_DECORATOR_TYPE, ROUTE__CONFIG } from "../../../nact-constants";
 import { NactConfigItem } from "../../../routing";
-import { isInitializedClass, isFunc } from "../../../shared";
+import { isInitializedClass, isFunction } from "../../../shared";
 import { Reflector } from "../../../Reflector";
 import type { WareGeneric } from "./interface";
-import { NactMiddleware } from "../../../middleware";
+import { isNactMiddleware, NactMiddleware } from "../../../middleware";
 
 function mapWareInstance(items: any[], storeAt: (NactConfigItem | NactConfigItemMiddleWare)[]): NactConfigItem[] {
 	for (let i = 0; i < items.length; i++) {
@@ -20,23 +20,15 @@ function mapWareInstance(items: any[], storeAt: (NactConfigItem | NactConfigItem
 			item = item[0];
 		}
 
-		if (item?.prototype instanceof NactMiddleware) {
+		if (isNactMiddleware(item?.prototype)) {
 			other = Reflector.get(MIDDLEWARE_DECORATOR_TYPE, item);
 		}
 
-		let isFuncType = isFunc(item);
-		const isInitialized = isInitializedClass(item);
-		if (isFuncType && !isInitialized) {
-			inject = true;
-			name = (item as { new (): any }).name;
-		} else {
-			inject = false;
-			name = isFuncType ? (item as Function).name : (item as new () => any).constructor.name;
-		}
+		let isFuncType = isFunction(item);
 
 		const data: NactConfigItem | NactConfigItemMiddleWare = {
-			name: name,
-			inject: inject,
+			name: isFuncType ? item.name : item.constructor.name,
+			inject: isFuncType && !isInitializedClass(item),
 			instance: item as any,
 		};
 
@@ -49,7 +41,7 @@ function mapWareInstance(items: any[], storeAt: (NactConfigItem | NactConfigItem
 
 function createWareDecorator<T extends any = null>(WareName: string) {
 	return function (...items: T extends null ? WareGeneric[] : T[]) {
-		return function (target: any, propertyKey?: string, descriptor?: PropertyDescriptor) {
+		return function (target: any, propertyKey?: string, descriptor?: PropertyDescriptor): any {
 			if (items.length > 0) {
 				if (isClassInstance(target) && !descriptor) {
 					const routeConfig = Reflect.getMetadata(ROUTE__CONFIG, target) ?? {};

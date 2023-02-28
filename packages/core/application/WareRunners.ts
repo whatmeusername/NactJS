@@ -1,7 +1,7 @@
 import type { NactConfigItem, NactConfigItemMiddleWare } from "../routing";
 import type { MiddlewareType, NactMiddlewareFunc, NactMiddlewareObject } from "../middleware";
 import type { NactRequest } from "../nact-request";
-import type { NactGuard, NactGuardFunc } from "../guard";
+import { isNactGuard, NactGuard, NactGuardFunc } from "../guard";
 
 function runMiddlewares(
 	middlewares: (NactMiddlewareObject<MiddlewareType> | NactConfigItemMiddleWare)[],
@@ -34,7 +34,7 @@ function runMiddlewares(
 				params = [NactRequest.getRequest(), NactRequest.getResponse(), next];
 				(middleware as NactMiddlewareFunc)(NactRequest.getRequest(), NactRequest.getResponse(), next);
 			}
-			(middleware as any)?.use
+			middleware?.use
 				? (middleware as any).use(...params)
 				: //@ts-ignore
 				  (middleware as NactMiddlewareFunc)(...params);
@@ -46,8 +46,10 @@ function runMiddlewares(
 function runGuards(guards: (NactGuardFunc | NactConfigItem)[], NactRequest: NactRequest): boolean {
 	let res = true;
 	for (let i = 0; i < guards.length; i++) {
-		const guard = ((guards[i] as any)?.instance as NactGuard) ?? (guards[i] as NactGuardFunc);
-		res = (guard as any)?.validate ? (guard as NactGuard).validate(NactRequest) : (guard as any)(NactRequest);
+		const guard: NactGuard | NactGuardFunc = ((guards[i] as any)?.instance as NactGuard) ?? (guards[i] as NactGuardFunc);
+		if (isNactGuard(guard)) {
+			res = guard.validate(NactRequest);
+		} else res = (guard as NactGuardFunc)(NactRequest);
 	}
 	return res;
 }

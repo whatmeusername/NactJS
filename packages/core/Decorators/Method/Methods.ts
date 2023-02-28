@@ -4,7 +4,7 @@ function createMethodDecorator(method: string, paths: (string | RegExp)[]) {
 	return function (
 		target: () => any,
 		propertyKey: string,
-		descriptor: TypedPropertyDescriptor<any>
+		descriptor: TypedPropertyDescriptor<any>,
 	): TypedPropertyDescriptor<any> {
 		let routesData: NactRouteData = Reflect.getMetadata(ROUTE__PATHS, target.constructor, propertyKey);
 		if (!routesData) {

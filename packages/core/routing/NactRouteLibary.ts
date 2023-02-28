@@ -31,7 +31,8 @@ class NactRouteLibrary {
 		if (controllers) this.registerController(controllers);
 	}
 
-	registerController(controllerClass: ClassInst | ClassInst[]) {
+	public registerController(controllerClass: ClassInst | ClassInst[]) {
+
 		const getDescriptorKeys = (prototype: any): string[] => {
 			if (prototype) {
 				return Object.keys(Object.getOwnPropertyDescriptors(prototype));
@@ -40,6 +41,7 @@ class NactRouteLibrary {
 		};
 
 		const sortRoutes = (router: NactRouter): void => {
+
 			let sort: { a: NactRouterChild[]; wnr: NactRouterChild[]; wr: NactRouterChild[]; opt: NactRouterChild[] } = {
 				a: [],
 				wnr: [],
@@ -142,7 +144,7 @@ class NactRouteLibrary {
 		});
 	}
 
-	getRouteParams(rc: any, route_method: string, req: NactRequest): any[] {
+	private getRouteParams(rc: any, route_method: string, req: NactRequest): any[] {
 		const routeMetadata = Reflect.getMetadata(ROUTE__PARAMETER__METADATA, rc, route_method);
 		if (routeMetadata) {
 			return getRouteParameters(routeMetadata[ROUTE__PARAMS] ?? [], req);
@@ -150,7 +152,7 @@ class NactRouteLibrary {
 		return [];
 	}
 
-	getRouteMethodOr404(req: NactRequest): NactRouter | undefined {
+	public getRouteMethodOr404(req: NactRequest): NactRouter | undefined {
 		const urlData = req.getURLData();
 		const method = req.getMethod();
 
@@ -180,10 +182,10 @@ class NactRouteLibrary {
 		}
 	}
 
-	getRouteMetadata(desc: (...args: any[]) => any, key: string): NactRouteData | undefined;
-	getRouteMetadata(desc: (...args: any[]) => any, key: string, dataOnly: true): RouteChild[] | undefined;
-	getRouteMetadata(desc: (...args: any[]) => any, key: string, dataOnly: false): NactRouteData | undefined;
-	getRouteMetadata(
+	private getRouteMetadata(desc: (...args: any[]) => any, key: string): NactRouteData | undefined;
+	private getRouteMetadata(desc: (...args: any[]) => any, key: string, dataOnly: true): RouteChild[] | undefined;
+	private getRouteMetadata(desc: (...args: any[]) => any, key: string, dataOnly: false): NactRouteData | undefined;
+	private getRouteMetadata(
 		desc: (...args: any[]) => any,
 		key: string,
 		dataOnly?: boolean,
@@ -192,7 +194,7 @@ class NactRouteLibrary {
 		return dataOnly ? metadata?.data : metadata;
 	}
 
-	getOrSetMetadataForRoute(
+	private getOrSetMetadataForRoute(
 		controller: any,
 		descriptorKey: string,
 		method: string,
@@ -237,7 +239,7 @@ class NactRouteLibrary {
 		}
 	}
 
-	clear(): void {
+	public clear(): void {
 		this.__routes = {};
 	}
 }

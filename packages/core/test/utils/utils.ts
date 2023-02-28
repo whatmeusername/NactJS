@@ -4,6 +4,7 @@ import type { NactRequest } from "../../nact-request";
 import type { ServiceInstanceOrName } from "./interface";
 
 import { isInitializedClass } from "../../shared";
+import type { HTTPMethods } from "../../routing";
 
 expect.extend({
 	toEqualMessage(received, expected, custom) {
@@ -38,15 +39,15 @@ class NactResponseTestingUtil {
 			this.done();
 		}
 	}
-
-	method(method: "GET" | "POST" | "DELETE" | "OPTIONS" | "PUT"): NactResponseTestingUtil {
+	public method(method: HTTPMethods): NactResponseTestingUtil {
 		if (this.passing) {
 			const reqMethod = this.NactRequest.getMethod();
 			if (reqMethod !== method) this.passing = false;
 		}
 		return this;
 	}
-	status(status: number): NactResponseTestingUtil {
+
+	public status(status: number): NactResponseTestingUtil {
 		if (this.passing) {
 			const responseStatusCode = this.NactRequest.getResponse().statusCode;
 			if (responseStatusCode !== status) {
@@ -57,7 +58,7 @@ class NactResponseTestingUtil {
 		return this;
 	}
 
-	length(length: number): NactResponseTestingUtil {
+	public length(length: number): NactResponseTestingUtil {
 		if (this.passing) {
 			//@ts-ignore accessing to protected property
 			const responseContentType = this.NactRequest.response.getHeader("Content-Length");
@@ -69,7 +70,7 @@ class NactResponseTestingUtil {
 		return this;
 	}
 
-	header(Header: string, value: string | number | undefined | null): NactResponseTestingUtil {
+	public header(Header: string, value: string | number | undefined | null): NactResponseTestingUtil {
 		if (this.passing) {
 			let header = this.NactRequest.getResponse().getHeader(Header);
 			if (Array.isArray(header)) header = header.join(",").trim();
@@ -82,7 +83,7 @@ class NactResponseTestingUtil {
 		return this;
 	}
 
-	done() {
+	public done(): void {
 		//@ts-ignore
 		expect(this.passing).toEqualMessage(true, this.fallenAt);
 	}

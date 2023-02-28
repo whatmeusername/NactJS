@@ -1,4 +1,4 @@
-import { isClassInstance, isFunc } from "../shared";
+import { isClassInstance, isFunction } from "../shared";
 import { NactRequest } from "../nact-request";
 import { getRouteConfig } from "../routing";
 import { GUARDS_VAR_NAME, MIDDLEWARE_VAR_NAME } from "../nact-constants";
@@ -8,6 +8,7 @@ import type { HttpExpectionHandler } from "../expections";
 import type { MiddlewareType, NactMiddlewareFunc, NactMiddlewareObject } from "../middleware";
 import type { NactServer } from "./NactApplication";
 import { runGuards, runMiddlewares } from "./WareRunners";
+import { NactWareExectionDirection } from "./interface";
 
 class NactGlobalConfig {
 	private middleware: NactMiddlewareObject<MiddlewareType>[];
@@ -27,20 +28,20 @@ class NactGlobalConfig {
 		return this.middleware;
 	}
 
-	getHandlers(): HttpExpectionHandler[];
-	getHandlers(name: string): HttpExpectionHandler | undefined;
-	getHandlers(name?: string): HttpExpectionHandler | HttpExpectionHandler[] | undefined {
+	public getHandlers(): HttpExpectionHandler[];
+	public getHandlers(name: string): HttpExpectionHandler | undefined;
+	public getHandlers(name?: string): HttpExpectionHandler | HttpExpectionHandler[] | undefined {
 		if (name) {
 			return this.handlers.find((handler) => (handler as any).name === name);
 		}
 		return this.handlers;
 	}
 
-	getGuards(): NactGuardFunc[] {
+	public getGuards(): NactGuardFunc[] {
 		return this.guards;
 	}
 
-	addGlobalHandler(
+	public addGlobalHandler(
 		handler: (new (...args: any[]) => HttpExpectionHandler) | (new (...args: any[]) => HttpExpectionHandler)[],
 	): void {
 		const coreModule = this.server.getTransferModule().getCoreModule();
@@ -59,7 +60,7 @@ class NactGlobalConfig {
 		}
 	}
 
-	addGlobalGuard(guards: NactGuardFunc[] | NactGuardFunc): void {
+	public addGlobalGuard(guards: NactGuardFunc[] | NactGuardFunc): void {
 		guards = Array.isArray(guards) ? guards : [guards];
 		const coreModule = this.server.getTransferModule().getCoreModule();
 		for (let i = 0; i < guards.length; i++) {
@@ -69,13 +70,13 @@ class NactGlobalConfig {
 				if (provider?.instance) {
 					this.guards.push(provider.instance);
 				}
-			} else if (isFunc(guard)) {
+			} else if (isFunction(guard)) {
 				this.guards.push(guard);
 			}
 		}
 	}
 
-	addGlobalMiddleware(middleware: NactMiddlewareFunc<typeof type>, type: MiddlewareType = "nact"): void {
+	public addGlobalMiddleware(middleware: NactMiddlewareFunc<typeof type>, type: MiddlewareType = "nact"): void {
 		if (Array.isArray(middleware)) {
 			const res: NactMiddlewareObject<typeof type> = { middleware: middleware, type: type ?? "nact" };
 			this.middleware = [...this.middleware, ...middleware];
@@ -85,8 +86,8 @@ class NactGlobalConfig {
 		}
 	}
 
-	executeWare(
-		direction: "after" | "before",
+	public executeWare(
+		direction: NactWareExectionDirection,
 		ctx: NactRequest,
 		target: object | ((...args: any[]) => any) | undefined,
 	): boolean {
@@ -108,7 +109,7 @@ class NactGlobalConfig {
 		return res;
 	}
 
-	executeGlobalWare(direction: "after" | "before", ctx: NactRequest): boolean {
+	public executeGlobalWare(direction: NactWareExectionDirection, ctx: NactRequest): boolean {
 		let res = true;
 
 		if (direction === "before") {

@@ -1,15 +1,17 @@
+import { ClassInst } from "../routing";
+
 function isInitializedClass(object: any): boolean {
 	return object && isClassInstance(object) && typeof object === "object";
 }
 
-function isClassInstance(object: any): boolean {
+function isClassInstance(object: any): object is ClassInst {
 	return (
 		object?.prototype?.constructor?.toString().substring(0, 5) === "class" ||
 		object?.constructor?.toString().substring(0, 5) === "class"
 	);
 }
 
-function isFunc(value: any): value is Function {
+function isFunction(value: any): value is (...args: any[]) => any {
 	return typeof value === "function";
 }
 
@@ -48,7 +50,7 @@ const removeSlashes = (string: string): string => {
 export {
 	isInitializedClass,
 	isClassInstance,
-	isFunc,
+	isFunction,
 	isObject,
 	isDefined,
 	isNull,

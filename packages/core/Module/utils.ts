@@ -4,7 +4,7 @@ import {
 	CONTROLLER__WATERMARK,
 	PROPERTY_DEPENDENCIES,
 } from "../nact-constants/index";
-import type { ParameterData, ConstructorData, NactCustomProvider, ProviderData, NactModule } from "./index";
+import { ParameterData, ConstructorData, NactCustomProvider, ProviderData, NactModule } from "./index";
 import { CUSTOM_PROVIDER_TOKEN, ROOT_MODULE_TOKEN, MODULE_TOKEN } from "./index";
 import { getNactLogger } from "../nact-logger/index";
 
@@ -12,16 +12,16 @@ import { isClassInstance } from "../shared/index";
 
 const NactLogger = getNactLogger();
 
-function isUndefined(value: any): boolean {
+function isUndefined(value: any): value is undefined {
 	return value === undefined || value === null || (typeof value === "string" && value.trim() === "");
 }
 
-function isRootModule(module: NactModule): boolean {
-	return module?.getModuleToken()?.startsWith(ROOT_MODULE_TOKEN);
+function isRootModule(module: NactModule): module is NactModule {
+	return module instanceof NactModule && module?.getModuleToken()?.startsWith(ROOT_MODULE_TOKEN);
 }
 
-function isModule(module: NactModule): boolean {
-	return module?.getModuleToken()?.startsWith(MODULE_TOKEN);
+function isModule(module: any): module is NactModule {
+	return module instanceof NactModule && module?.getModuleToken()?.startsWith(MODULE_TOKEN);
 }
 
 function isCustomProvider(provider: any): boolean {
@@ -72,15 +72,15 @@ function mapCustomProviderArgs(params: any[]): ParameterData[] {
 				res.push({ name: param, index: i, type: "inject" });
 			} else if (typeof param === "object") {
 				const provide = param.provide;
-				if (provide) {
-					// prettier-ignore
-					const paramName = isClassInstance(provide) ? provide.name : (typeof provide === "string" ? provide : undefined);
-					if (paramName) {
-						const paramData: ParameterData = { name: paramName, index: i, type: "inject" };
-						if (param?.optional !== undefined) paramData.optional = param.optional;
-						res.push(paramData);
-					}
-				}
+				if (!provide) continue;
+
+				const paramName = isClassInstance(provide) ? provide.name : typeof provide === "string" ? provide : undefined;
+
+				if (!paramName) continue;
+
+				const paramData: ParameterData = { name: paramName, index: i, type: "inject" };
+				if (param?.optional !== undefined) paramData.optional = param.optional;
+				res.push(paramData);
 			}
 		}
 	}
@@ -105,7 +105,7 @@ function getConstructorParametersData(provider: any, validateType?: boolean): Co
 			if (!isInjectedProperty(i)) {
 				if (paramType === undefined && !validateType) {
 					NactLogger.error(
-						`Cannot resolve constructor parameter of class "${provider.name}" with index ${i}, because of "${paramType}" value. Maybe is circular dependency, that not cant be handled.`,
+						`Cannot resolve constructor parameter of class "${provider.name}" with index ${i}, because of "${paramType}" value. Maybe is circular dependency, that cant be handled.`,
 					);
 				} else if (!isClassInstance(paramType) && !validateType) {
 					NactLogger.warning(
@@ -115,7 +115,7 @@ function getConstructorParametersData(provider: any, validateType?: boolean): Co
 					res.params.push({ name: paramType.name, index: i, type: "class" });
 				}
 			}
-			res.count += 1;
+			res.count++;
 		}
 	}
 
@@ -129,16 +129,15 @@ function unpackModuleArrays(module: NactModule): void {
 		const moduleSettings = module.__moduleSettings;
 		const providers = moduleSettings?.providers;
 
-		if (providers) {
-			let flattedProviders: ProviderData[] = [];
-			for (let i = 0; i < providers.length; i++) {
-				const provider = providers[i];
-				if (Array.isArray(provider)) {
-					flattedProviders = [...flattedProviders, ...provider];
-				} else flattedProviders.push(provider);
-			}
-			moduleSettings.providers = flattedProviders;
+		if (!providers) return;
+
+		let flattedProviders: ProviderData[] = [];
+		for (let i = 0; i < providers.length; i++) {
+			if (Array.isArray(providers[i])) {
+				flattedProviders.push(...providers[i]);
+			} else flattedProviders.push(providers[i]);
 		}
+		moduleSettings.providers = flattedProviders;
 	}
 }
 

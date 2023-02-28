@@ -53,7 +53,7 @@ class ControllerExpectionsHandler {
 		this.handlers = [...contorllerInstances, ...global];
 	}
 
-	handle(expection: HttpExpection, ctx: NactRequest): boolean {
+	public handle(expection: HttpExpection, ctx: NactRequest): boolean {
 		const routeMethod = ctx.getHandler();
 		const methodHandlers = Reflect.getMetadata(ROUTE__CONFIG, routeMethod ?? {})?.[HANDLER_VAR_NAME];
 

@@ -16,15 +16,15 @@ class NactRouter {
 		this.expectionHandler = new ControllerExpectionsHandler(app, controller);
 	}
 
-	getInstance(): { new (): any } {
+	public getInstance(): { new (): any } {
 		return this.instance;
 	}
 
-	getControllerHandler(): ControllerExpectionsHandler {
+	public getControllerHandler(): ControllerExpectionsHandler {
 		return this.expectionHandler;
 	}
 
-	addRoute(route: RouteChild): void {
+	public addRoute(route: RouteChild): void {
 		const routerName = route.path + "#" + route.method;
 		if (!this.child.find((r) => r.rn === routerName)) {
 			const d = { rn: routerName, RouteChild: route };
@@ -35,9 +35,9 @@ class NactRouter {
 		}
 	}
 
-	getChild(): NactRouterChild[];
-	getChild(path?: string, method?: string | null): RouteChild | undefined;
-	getChild(path?: string, method?: string | null): NactRouterChild[] | undefined | RouteChild {
+	public getChild(): NactRouterChild[];
+	public getChild(path?: string, method?: string | null): RouteChild | undefined;
+	public getChild(path?: string, method?: string | null): NactRouterChild[] | undefined | RouteChild {
 		if (path) {
 			const name = method ? path + "#" + method : path;
 			return this.child.find((c) => c.rn === name)?.RouteChild;
@@ -45,18 +45,18 @@ class NactRouter {
 		return this.child;
 	}
 
-	getAbsolute(): string[] {
+	public getAbsolute(): string[] {
 		return this.absolute;
 	}
 
-	hasAbsolute(path: string, method?: string | null): boolean {
+	public hasAbsolute(path: string, method?: string | null): boolean {
 		const name = method ? path + "#" + method : path;
 		return this.absolute.includes(name);
 	}
 
-	getAbsoluteOrNull(path: string, method?: string | null): RouteChild | undefined {
+	public getAbsoluteOrNull(path: string, method?: string | null): RouteChild | null {
 		const name = method ? path + "#" + method : path;
-		return this.child.find((c) => c.rn === name && c.RouteChild.absolute)?.RouteChild;
+		return this.child.find((c) => c.rn === name && c.RouteChild.absolute)?.RouteChild ?? null;
 	}
 }
 

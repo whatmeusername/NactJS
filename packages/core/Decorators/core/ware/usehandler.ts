@@ -9,7 +9,9 @@ const useHandler = createWareDecorator<{ new (...arg: any[]): HttpExpectionHandl
 	HANDLER_VAR_NAME,
 );
 
-function Handler(...handlers: ({ new (status: number, message: string): HttpExpection } | HttpExpection | string)[]) {
+function Handler(
+	...handlers: ({ new (status: number, message: string): HttpExpection } | HttpExpection | string)[]
+): ReturnType<typeof setMetadata> {
 	return setMetadata(HANDLER__ALLOWED__EXPECTIONS, handlers ?? []);
 }
 

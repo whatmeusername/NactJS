@@ -6,7 +6,7 @@ import type { NactRouteConfig, NactRouteWare } from "./interface";
 function handleRouteDataInjections(target: any, descriptorKey?: string): NactRouteConfig | undefined {
 	if (!target) return {};
 
-	const routeConfig: NactRouteConfig | undefined = getRouteConfig(target, descriptorKey);
+	const routeConfig = getRouteConfig(target, descriptorKey);
 	if (routeConfig) {
 		const routeConfigValues: NactRouteWare[] = Object.values(routeConfig) as NactRouteWare[];
 		for (let i = 0; i < routeConfigValues.length; i++) {

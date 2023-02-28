@@ -56,79 +56,79 @@ class NactRequest {
 
 	// ---- getters ----
 
-	getHandlerClass(): object | undefined {
+	public getHandlerClass(): object | undefined {
 		return this.handler?.getHandlerClass();
 	}
 
-	getHandler(): ((...args: any[]) => any) | undefined {
+	public getHandler(): ((...args: any[]) => any) | undefined {
 		return this.handler?.getHandler();
 	}
 
-	getHandlerData(): RouteHandlerData | null {
+	public getHandlerData(): RouteHandlerData | null {
 		return this.handler;
 	}
 
-	getRouteData(): RouteChild | undefined {
+	public getRouteData(): RouteChild | undefined {
 		return this.handler?.getRouteData();
 	}
 
-	getPayload(): any | undefined {
+	public getPayload(): any | undefined {
 		return this.payload;
 	}
 
-	getURLData(): NactUrlParseQuery {
+	public getURLData(): NactUrlParseQuery {
 		return this.urldata;
 	}
 
-	getRequest(): NactIncomingMessage {
+	public getRequest(): NactIncomingMessage {
 		return this.request;
 	}
 
-	getResponse(): NactServerResponse {
+	public getResponse(): NactServerResponse {
 		return this.response;
 	}
 
-	getProtocol(): string {
+	public getProtocol(): string {
 		return this.protocol;
 	}
 
-	getMethod(): string | null {
+	public getMethod(): string | null {
 		return this.method;
 	}
 
-	getHost(): string | null {
+	public getHost(): string | null {
 		return this.host;
 	}
 
-	getOrigin(): string | null {
+	public getOrigin(): string | null {
 		return this.origin;
 	}
 
-	getIP(): string | null {
+	public getIP(): string | null {
 		return this.ip;
 	}
 
 	// ---- Setters -----
 
-	setPayload(payload: any): any {
+	public setPayload(payload: any): any {
 		this.payload = payload;
 		return this.payload;
 	}
 
 	// ==== Utils =====
 
-	isSended(): boolean {
+	public isSended(): boolean {
 		return this.response.writableEnded;
 	}
 
-	send(): NactRequest {
+	public send(): NactRequest {
 		if (!this.response.isSended()) {
 			this.response.send(this.payload);
 		}
 		return this;
 	}
 
-	sendFile(path: string, options: NactSendFileOption = SendFileDefaultOption) {
+	public sendFile(path: string, options: NactSendFileOption = SendFileDefaultOption) {
 		const isFileExists = fs.existsSync(path);
 		const response = this.getResponse();
 		if (isFileExists && !this.isSended()) {

@@ -4,7 +4,7 @@ type MiddlewareType = "nact" | "express" | "fastify";
 
 type NactMiddlewareFunc<T extends void | MiddlewareType = void> = T extends "nact"
 	? (req: NactRequest) => void
-	: (req: NactIncomingMessage, res: NactServerResponse, next: any) => void;
+	: (req: NactIncomingMessage, res: NactServerResponse, next: (value: string) => void) => void;
 
 type NactMiddlewareObject<T extends MiddlewareType> = { middleware: NactMiddlewareFunc<T>; type: T };
 

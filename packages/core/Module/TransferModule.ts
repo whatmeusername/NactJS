@@ -83,18 +83,7 @@ class NactTransferModule {
 		return this.__modules.length;
 	}
 
-	emitProviderEvent(event: NactListernerEvent, key: string): void {
-		const provider = this.__providersLocator.find((provider) => provider.key === key);
-		if (provider) {
-			if (event === "close" && provider.instance.onApplicationShutdown) {
-				provider.instance.onApplicationShutdown();
-			} else if (event === "start" && provider.instance.onApplicationStart) {
-				provider.instance.onApplicationStart();
-			}
-		}
-	}
-
-	emitAllProviderEvent(event: NactListernerEvent): void {
+	public emitAllProviderEvent(event: NactListernerEvent): void {
 		for (let i = 0; i < this.__providersLocator.length; i++) {
 			const provider = this.__providersLocator[i];
 			if (provider) {
@@ -107,16 +96,16 @@ class NactTransferModule {
 		}
 	}
 
-	getProviderLocator(): ProviderLocation[] {
+	public getProviderLocator(): ProviderLocation[] {
 		return this.__providersLocator;
 	}
 
-	getCoreModule(): CoreModule | undefined {
+	public getCoreModule(): CoreModule | undefined {
 		return this.__modules.find((module) => module instanceof CoreModule) as CoreModule;
 	}
 	// ----- Public General ----
 
-	append(module: NactModule | NactModule[]): void {
+	public append(module: NactModule | NactModule[]): void {
 		const append = (module: NactModule) => {
 			if (isModule(module)) {
 				unpackModuleArrays(module);
@@ -137,7 +126,7 @@ class NactTransferModule {
 		} else append(module);
 	}
 
-	useRootModule(settings: NactRootModuleSettings): void {
+	public useRootModule(settings: NactRootModuleSettings | Promise<NactRootModuleSettings>): void {
 		const exportAllProviders = (settings: NactRootModuleSettings): NactRootModuleSettings => {
 			const providers = settings.providers ?? [];
 			settings.export = [];
@@ -153,6 +142,7 @@ class NactTransferModule {
 
 			return settings;
 		};
+
 		const create = (settings: NactRootModuleSettings) => {
 			exportAllProviders(settings);
 			const module = createRootModule(settings, this.key);
@@ -162,22 +152,22 @@ class NactTransferModule {
 		};
 
 		if (settings instanceof Promise) {
-			this.__asyncQueryCount += 1;
+			this.__asyncQueryCount++;
 			settings.then((response) => {
 				create(response);
-				this.__asyncQueryCount -= 1;
+				this.__asyncQueryCount--;
 			});
 		} else create(settings);
 	}
 
-	useModule(settings: NactModuleSettings): string {
+	public useModule(settings: NactModuleSettings): string {
 		settings.isRoot = false;
 		const newModule = new NactModule(settings, this.key);
 		this.append(newModule);
 		return newModule.getModuleToken();
 	}
 
-	hasModule(moduleKey: string): boolean {
+	public hasModule(moduleKey: string): boolean {
 		return this.__modules.find((module) => module.getModuleToken() === moduleKey) !== undefined;
 	}
 
@@ -196,13 +186,14 @@ class NactTransferModule {
 
 		this.__modules.forEach((module: NactModule) => {
 			if (isRootModule(module)) {
-				const providers = module?.__moduleSettings?.providers ?? [];
-				providers.forEach((provider) => {
+				(module?.__moduleSettings?.providers ?? []).forEach((provider) => {
 					if (isCustomProvider(provider)) {
 						const res = resolveRootCustomProviderFactory(provider);
 						if (res instanceof Promise) {
-							this.__asyncQueryCount += 1;
-							res.then(() => (this.__asyncQueryCount -= 1));
+							this.__asyncQueryCount++;
+							res.then(() => {
+								this.__asyncQueryCount--;
+							});
 						}
 					}
 				});
@@ -296,8 +287,8 @@ class NactTransferModule {
 
 	// ==== Module Getters =====
 
-	getProviderFromLocationByName(ProviderName: string | { new (): void }): any {
-		ProviderName = (isClassInstance(ProviderName) ? (ProviderName as { new (): void }).name : ProviderName) as string;
+	public getProviderFromLocationByName(ProviderName: string | { new (): void }): any {
+		ProviderName = (isClassInstance(ProviderName) ? ProviderName.name : ProviderName) as string;
 		let provider = this.__getProviderFromLocation(ProviderName);
 		if (!provider) {
 			for (let i = 0; i < this.__modules.length; i++) {
@@ -311,7 +302,7 @@ class NactTransferModule {
 		return provider;
 	}
 
-	getModulesControllers(instanceOnly = false): any[] {
+	public getModulesControllers(instanceOnly = false): any[] {
 		const modules = this.__modules;
 		const controllers = [];
 		for (let i = 0; i < modules.length; i++) {

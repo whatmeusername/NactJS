@@ -7,9 +7,9 @@ class CoreModule extends NactModule {
 		super({}, transferModuleKey);
 	}
 
-	appendProvider(provider: any): ProviderData | undefined;
-	appendProvider(provider: any[]): ProviderData[] | undefined;
-	appendProvider(provider: any): ProviderData | undefined | ProviderData[] {
+	public appendProvider(provider: any): ProviderData | undefined;
+	public appendProvider(provider: any[]): ProviderData[] | undefined;
+	public appendProvider(provider: any): ProviderData | undefined | ProviderData[] {
 		if (provider) {
 			if (Array.isArray(provider)) {
 				const res: ProviderData[] = [];

@@ -1,4 +1,4 @@
-import { serverSettings } from "./interface";
+import { NactListernerEvent, serverSettings } from "./interface";
 import { NactServer } from "./NactApplication";
 
 import { config } from "dotenv";
@@ -8,15 +8,15 @@ function createNactApp(transferModuleKey?: string, serverSetting?: serverSetting
 	const server = new NactServer(transferModuleKey, serverSetting);
 
 	process.on("SIGINT", () => {
-		server.emit("close");
+		server.emit(NactListernerEvent.CLOSE);
 		process.exit(0);
 	});
 	process.on("SIGQUIT", () => {
-		server.emit("close");
+		server.emit(NactListernerEvent.CLOSE);
 		process.exit(0);
 	});
 	process.on("SIGTERM", () => {
-		server.emit("close");
+		server.emit(NactListernerEvent.CLOSE);
 		process.exit(0);
 	});
 

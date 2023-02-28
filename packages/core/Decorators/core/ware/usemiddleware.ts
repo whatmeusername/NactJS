@@ -6,7 +6,7 @@ import type { NactMiddlewareDecoratorArgument } from "./interface";
 
 const useMiddleware = createWareDecorator<NactMiddlewareDecoratorArgument>(MIDDLEWARE_VAR_NAME);
 
-function Middleware(type?: MiddlewareType) {
+function Middleware(type?: MiddlewareType): ReturnType<typeof setMetadata> {
 	return setMetadata(MIDDLEWARE_DECORATOR_TYPE, type ?? "nact");
 }
 

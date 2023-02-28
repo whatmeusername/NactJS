@@ -1,7 +1,7 @@
 import { createRouteParamDecorator } from "../Utils";
 import { RouteChild, NactRequest } from "../../index";
 
-const Param = createRouteParamDecorator(function (req: NactRequest) {
+const Param = createRouteParamDecorator(function (req: NactRequest): { [K: string]: any } {
 	const route = req.getRouteData() as RouteChild;
 	const routeParams: { [K: string]: any } = {};
 	let requestPathSchema = req.getURLData().params;

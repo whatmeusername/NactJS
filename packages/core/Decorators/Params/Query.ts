@@ -2,7 +2,7 @@ import { createRouteParamDecorator } from "../Utils";
 import { NactRequest } from "../../index";
 
 function Query(...params: string[]) {
-	return createRouteParamDecorator(function (req: NactRequest) {
+	return createRouteParamDecorator(function (req: NactRequest): { [K: string]: any } {
 		const query = req.getURLData().query;
 		if (params.length > 0) {
 			const res: { [K: string]: any } = {};
